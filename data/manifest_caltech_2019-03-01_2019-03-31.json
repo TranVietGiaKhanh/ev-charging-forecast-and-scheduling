@@ -1,0 +1,27 @@
+{
+  "site": "caltech",
+  "start_local_date": "2019-03-01",
+  "end_local_date": "2019-03-31",
+  "timezone": "America/Los_Angeles",
+  "chunk_days": 30,
+  "timeseries": false,
+  "min_energy_filter": null,
+  "rows_downloaded": 954,
+  "rows_after_dedup_and_filter": 954,
+  "fetched_at_utc": "2026-10-14T06:43:34+00:00",
+  "acnportal_version": "unknown",
+  "chunks": [
+    {
+      "chunk": "caltech_20190301_20190331",
+      "n": 942,
+      "expected": 942,
+      "source": "api"
+    },
+    {
+      "chunk": "caltech_20190331_20190401",
+      "n": 12,
+      "expected": 12,
+      "source": "api"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+# 1. Bỏ qua cache của Python và môi trường ảo
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.vscode/
+.idea/
+
+# 2. Chặn TOÀN BỘ dữ liệu trong data
+data/raw/*
+data/processed/*
+data/demo/*
+
+# 3. Trong results/: Chặn các file log chi tiết hàng trăm nghìn dòng
+results/schedule_session_level.csv
+results/schedule_load_profiles.csv
+results/forecast_predictions_test.csv
+results/N_hat_hourly.csv
+
+# 4. Giữ lại các file .gitkeep để không mất cấu trúc thư mục rỗng
+!.gitkeep

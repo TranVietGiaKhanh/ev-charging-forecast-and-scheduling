@@ -1,0 +1,15 @@
+target,model,MAE,RMSE,improve_vs_SN24_%
+N,SeasonalNaive_24h,0.883,1.503,0.0
+N,SeasonalNaive_168h,0.817,1.345,7.547
+N,HistAvg_hour_dow,0.725,1.126,17.925
+N,Ridge,0.76,1.156,13.963
+N,DecisionTree,0.748,1.13,15.317
+N,RandomForest,0.693,1.011,21.585
+N,MLP,0.707,1.026,20.015
+L,SeasonalNaive_24h,6.676,10.207,0.0
+L,SeasonalNaive_168h,4.574,6.146,31.477
+L,HistAvg_hour_dow,4.141,6.045,37.976
+L,Ridge,4.939,6.347,26.021
+L,DecisionTree,5.139,7.044,23.024
+L,RandomForest,4.477,6.065,32.942
+L,MLP,4.774,6.177,28.494

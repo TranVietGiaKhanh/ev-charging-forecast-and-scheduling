@@ -1,0 +1,42 @@
+{
+  "N/Ridge": {
+    "m__alpha": 0.1
+  },
+  "N/DecisionTree": {
+    "m__max_depth": 5,
+    "m__min_samples_leaf": 2
+  },
+  "N/RandomForest": {
+    "m__max_depth": 4,
+    "m__min_samples_leaf": 1
+  },
+  "N/MLP": {
+    "best_epochs": [
+      7,
+      4,
+      7,
+      7,
+      4
+    ]
+  },
+  "L/Ridge": {
+    "m__alpha": 10
+  },
+  "L/DecisionTree": {
+    "m__max_depth": 3,
+    "m__min_samples_leaf": 2
+  },
+  "L/RandomForest": {
+    "m__max_depth": 4,
+    "m__min_samples_leaf": 1
+  },
+  "L/MLP": {
+    "best_epochs": [
+      4,
+      3,
+      2,
+      5,
+      3
+    ]
+  }
+}

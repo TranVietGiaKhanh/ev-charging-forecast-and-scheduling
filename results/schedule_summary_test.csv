@@ -1,0 +1,8 @@
+policy,total_cost_VND,cost_per_kWh_VND,peak_load_kW,steps_over_Pmax,peak_window_energy_kWh,pct_sessions_fully_charged,pct_energy_served,unmet_energy_kWh,mean_solve_time_s,solver_fallbacks,cost_saving_vs_uncontrolled_%
+FCFS-Uncontrolled,4917924,1913.3,76.96,74,708.3,100.0,100.0,0.0,,0,0.0
+FCFS-Capped40kW,4665632,1820.8,40.0,0,548.1,98.16,99.69,8.0,,0,5.13
+EDF,4677624,1819.8,40.0,0,548.1,100.0,100.0,0.0,,0,4.89
+LLF,4677624,1819.8,40.0,0,548.1,100.0,100.0,0.0,,0,4.89
+LP-rolling,3968091,1543.8,40.0,0,75.1,100.0,100.0,0.0,0.0027,0,19.31
+LP+reserve(g=0.1),3968091,1543.8,40.0,0,75.1,100.0,100.0,0.0,0.003,0,19.31
+LP+reserve(g=0.2),3968091,1543.8,40.0,0,75.1,100.0,100.0,0.0,0.0029,0,19.31
