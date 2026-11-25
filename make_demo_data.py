@@ -23,10 +23,10 @@ def fmt(ts_local):
     return ts.strftime("%a, %d %b %Y %H:%M:%S GMT")
 
 
-def main(out):
+def main(out, start, end):
     items = []
     sid = 0
-    for day in pd.date_range("2019-03-01", "2019-03-31", freq="D"):
+    for day in pd.date_range(start, end, freq="D"):
         weekend = day.dayofweek >= 5
         n = rng.poisson(8 if weekend else 38)
         for _ in range(n):
@@ -70,4 +70,7 @@ def main(out):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=str(ROOT / "data" / "demo" / "demo_acn.json"))
-    main(ap.parse_args().out)
+    ap.add_argument("--start", default="2018-05-01", help="ngày bắt đầu (khớp config.DATA_START)")
+    ap.add_argument("--end", default="2019-04-30", help="ngày kết thúc, gồm cả ngày này")
+    a = ap.parse_args()
+    main(a.out, a.start, a.end)

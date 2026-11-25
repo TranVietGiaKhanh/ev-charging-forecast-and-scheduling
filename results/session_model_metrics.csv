@@ -1,0 +1,5 @@
+method,MAE_kWh,MAE_duration_h,pct_leave_before_estimate,pct_need_more_than_estimate
+Trung vị quá khứ,5.717,3.702,43.2,44.0
+Khai báo (thiếu -> trung vị),8.667,2.949,31.8,1.1
+Mô hình (trung vị),2.916,2.028,45.1,40.7
+"Mô hình (q_kwh=0.85, q_dur=0.15) - dùng cho lập lịch",4.703,2.779,17.6,17.8

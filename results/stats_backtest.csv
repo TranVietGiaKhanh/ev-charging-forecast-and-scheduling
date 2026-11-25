@@ -1,0 +1,14 @@
+group,comparison,config,metric,estimate,CI95_low,CI95_high,boot_share_le_0,days_differ,significant_95,windows_positive,window_min,window_max
+Dự báo,MLP so với SeasonalNaive_24h,"N, 7 cửa sổ (DM p = 0.0000)",% giảm MAE,21.905,14.323,27.79,0.0,208,có,6/7,-3.119,38.854
+Dự báo,MLP so với RandomForest,"N, 7 cửa sổ (DM p = 0.0438)",% giảm MAE,2.302,-0.299,4.725,0.0423,208,không,6/7,-7.142,5.412
+Dự báo,MLP so với SeasonalNaive_24h,"L, 7 cửa sổ (DM p = 0.0000)",% giảm MAE,29.769,23.841,34.672,0.0,208,có,7/7,12.305,40.487
+Dự báo,MLP so với RandomForest,"L, 7 cửa sổ (DM p = 0.0151)",% giảm MAE,2.41,0.702,4.005,0.0038,208,có,5/7,-0.718,4.515
+Lập lịch,LP-rolling so với FCFS-Uncontrolled,"QD2892_2026, oracle, 40 kW",% tiết kiệm chi phí,7.42,5.668,9.079,0.0,207,có,7/7,3.415,12.911
+Lập lịch,LP-rolling so với FCFS-Uncontrolled,"TT16_cu, oracle, 40 kW",% tiết kiệm chi phí,14.868,13.503,16.058,0.0,206,có,7/7,9.791,18.28
+Giá trị dự báo từng xe,predicted so với declared (LP-rolling),"QD2892_2026, predicted/declared, 25 kW",% giảm kWh thiếu,5.089,3.351,6.963,0.0,173,có,6/7,-1.506,12.665
+Giá trị dự báo từng xe,predicted so với declared (LP-rolling),"QD2892_2026, predicted/declared, 40 kW",% giảm kWh thiếu,14.192,4.87,18.827,0.0051,158,có,6/7,-27.102,43.09
+Lập lịch,LLF so với LP-rolling,"QD2892_2026, predicted, 40 kW",kWh thiếu giảm được,1744.528,1137.808,2441.259,0.0,135,có,7/7,68.903,767.391
+Giá trị dự báo xe đến,LP+forecast(RandomForest) so với LP-rolling,"QD2892_2026, oracle, 25 kW",kWh thiếu giảm được,103.114,60.061,151.934,0.0,42,có,6/7,-1.816,27.644
+Giá trị dự báo xe đến,LP+forecast(perfect) so với LP+forecast(RandomForest),"QD2892_2026, oracle, 25 kW",kWh thiếu giảm được,15.147,-3.517,42.832,0.078,26,không,4/7,-1.75,10.352
+Giá trị dự báo xe đến,LP+forecast(RandomForest) so với LP-rolling,"TT16_cu, oracle, 25 kW",kWh thiếu giảm được,502.666,340.11,694.018,0.0,64,có,7/7,10.32,144.611
+Giá trị dự báo xe đến,LP+forecast(perfect) so với LP+forecast(RandomForest),"TT16_cu, oracle, 25 kW",kWh thiếu giảm được,25.039,0.657,57.053,0.0215,23,có,4/7,-1.792,11.668

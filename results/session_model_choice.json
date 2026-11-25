@@ -1,0 +1,66 @@
+{
+  "q_kwh": 0.85,
+  "q_dur": 0.15,
+  "validation": [
+    {
+      "q_kwh": 0.5,
+      "q_dur": 0.3,
+      "val_objective": 139580919
+    },
+    {
+      "q_kwh": 0.5,
+      "q_dur": 0.15,
+      "val_objective": 121274881
+    },
+    {
+      "q_kwh": 0.5,
+      "q_dur": 0.05,
+      "val_objective": 140491508
+    },
+    {
+      "q_kwh": 0.7,
+      "q_dur": 0.3,
+      "val_objective": 128309947
+    },
+    {
+      "q_kwh": 0.7,
+      "q_dur": 0.15,
+      "val_objective": 116798342
+    },
+    {
+      "q_kwh": 0.7,
+      "q_dur": 0.05,
+      "val_objective": 143079366
+    },
+    {
+      "q_kwh": 0.85,
+      "q_dur": 0.3,
+      "val_objective": 124073017
+    },
+    {
+      "q_kwh": 0.85,
+      "q_dur": 0.15,
+      "val_objective": 116119651
+    },
+    {
+      "q_kwh": 0.85,
+      "q_dur": 0.05,
+      "val_objective": 147882998
+    },
+    {
+      "q_kwh": 0.95,
+      "q_dur": 0.3,
+      "val_objective": 119088987
+    },
+    {
+      "q_kwh": 0.95,
+      "q_dur": 0.15,
+      "val_objective": 118485404
+    },
+    {
+      "q_kwh": 0.95,
+      "q_dur": 0.05,
+      "val_objective": 152821972
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+target,model_A,model_B,MAE_A,MAE_B,mean_abs_err_diff,DM_HLN_stat,p_value
+N,MLP,SeasonalNaive_24h,0.73,1.009,-0.2792,-6.495,0.0
+N,MLP,SeasonalNaive_168h,0.73,0.86,-0.1302,-3.926,0.0001
+N,MLP,RandomForest,0.73,0.762,-0.0314,-2.93,0.0035
+L,RandomForest,SeasonalNaive_24h,4.735,7.252,-2.5163,-5.424,0.0
+L,RandomForest,SeasonalNaive_168h,4.735,5.429,-0.694,-3.263,0.0011
+L,RandomForest,MLP,4.735,4.768,-0.0329,-0.321,0.748

@@ -14,8 +14,8 @@ data/processed/*
 data/demo/*
 
 # 3. Trong results/: Chặn các file log chi tiết hàng trăm nghìn dòng
-results/schedule_session_level.csv
-results/schedule_load_profiles.csv
+results/schedule_session_level*.csv
+results/schedule_load_profiles*.csv
 results/forecast_predictions_test.csv
 results/N_hat_hourly.csv
 

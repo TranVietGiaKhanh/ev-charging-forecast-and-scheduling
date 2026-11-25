@@ -1,42 +1,42 @@
 {
   "N/Ridge": {
-    "m__alpha": 0.1
+    "m__alpha": 100
   },
   "N/DecisionTree": {
-    "m__max_depth": 5,
-    "m__min_samples_leaf": 2
+    "m__max_depth": 8,
+    "m__min_samples_leaf": 10
   },
   "N/RandomForest": {
-    "m__max_depth": 4,
-    "m__min_samples_leaf": 1
+    "m__max_depth": 8,
+    "m__min_samples_leaf": 3
   },
   "N/MLP": {
     "best_epochs": [
-      7,
-      4,
-      7,
-      7,
-      4
+      3,
+      3,
+      3,
+      2,
+      3
     ]
   },
   "L/Ridge": {
-    "m__alpha": 10
+    "m__alpha": 100
   },
   "L/DecisionTree": {
-    "m__max_depth": 3,
-    "m__min_samples_leaf": 2
+    "m__max_depth": 6,
+    "m__min_samples_leaf": 10
   },
   "L/RandomForest": {
-    "m__max_depth": 4,
-    "m__min_samples_leaf": 1
+    "m__max_depth": 8,
+    "m__min_samples_leaf": 3
   },
   "L/MLP": {
     "best_epochs": [
-      4,
-      3,
-      2,
-      5,
-      3
+      13,
+      11,
+      9,
+      8,
+      6
     ]
   }
 }

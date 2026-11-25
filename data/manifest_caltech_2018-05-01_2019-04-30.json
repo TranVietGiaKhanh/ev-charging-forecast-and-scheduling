@@ -1,0 +1,89 @@
+{
+  "site": "caltech",
+  "start_local_date": "2018-05-01",
+  "end_local_date": "2019-04-30",
+  "timezone": "America/Los_Angeles",
+  "chunk_days": 30,
+  "rows_downloaded": 18941,
+  "fetched_at_utc": "2026-11-10T19:10:56+00:00",
+  "chunks": [
+    {
+      "chunk": "caltech_20180501_20180530",
+      "n": 1698,
+      "expected": 1698,
+      "source": "api"
+    },
+    {
+      "chunk": "caltech_20180531_20180629",
+      "n": 1886,
+      "expected": 1886,
+      "source": "api"
+    },
+    {
+      "chunk": "caltech_20180630_20180729",
+      "n": 1934,
+      "expected": 1934,
+      "source": "api"
+    },
+    {
+      "chunk": "caltech_20180730_20180828",
+      "n": 2306,
+      "expected": 2306,
+      "source": "api"
+    },
+    {
+      "chunk": "caltech_20180829_20180927",
+      "n": 2406,
+      "expected": 2406,
+      "source": "api"
+    },
+    {
+      "chunk": "caltech_20180928_20181027",
+      "n": 2270,
+      "expected": 2270,
+      "source": "api"
+    },
+    {
+      "chunk": "caltech_20181028_20181126",
+      "n": 1445,
+      "expected": 1445,
+      "source": "api"
+    },
+    {
+      "chunk": "caltech_20181127_20181226",
+      "n": 1041,
+      "expected": 1041,
+      "source": "api"
+    },
+    {
+      "chunk": "caltech_20181227_20190125",
+      "n": 851,
+      "expected": 851,
+      "source": "api"
+    },
+    {
+      "chunk": "caltech_20190126_20190224",
+      "n": 939,
+      "expected": 939,
+      "source": "api"
+    },
+    {
+      "chunk": "caltech_20190225_20190326",
+      "n": 987,
+      "expected": 987,
+      "source": "api"
+    },
+    {
+      "chunk": "caltech_20190327_20190425",
+      "n": 1015,
+      "expected": 1015,
+      "source": "api"
+    },
+    {
+      "chunk": "caltech_20190426_20190430",
+      "n": 163,
+      "expected": 163,
+      "source": "api"
+    }
+  ]
+}

@@ -2,10 +2,11 @@
 BƯỚC 1 - TIỀN XỬ LÝ
   JSON ACN-Data  ->  (a) bảng phiên sạc  (b) chuỗi tổng hợp theo giờ  (c) bảng đặc trưng
 
-Mọi mốc thời gian được đổi sang GIỜ ĐỊA PHƯƠNG (America/Los_Angeles) rồi bỏ thông tin múi giờ
-("naive") để lưới giờ luôn đủ 744 điểm cho tháng 3 (nếu giữ múi giờ thì tháng 3/2019 chỉ có
-743 giờ vì chuyển sang giờ mùa hè ngày 10/03).
+Thời gian (xem src/timeaxis.py): mọi mốc được lưu theo GIỜ THỰC (UTC). Lưới giờ là các giờ UTC liên tiếp nên mỗi giờ
+xuất hiện đúng một lần, kể cả ngày chuyển giờ: ngày 04/11/2018 (về giờ mùa đông) có 25 giờ địa phương, ngày 10/03/2019
+(sang giờ mùa hè) có 23 giờ. Giờ địa phương chỉ dùng cho đặc trưng lịch (giờ, thứ, ngày lễ) và cột hiển thị local_time.
 """
+import ast
 import json
 from pathlib import Path
 
@@ -13,6 +14,7 @@ import numpy as np
 import pandas as pd
 
 from . import config as C
+from . import timeaxis as T
 
 
 # ------------------------------------------------------------------ đọc dữ liệu
@@ -31,28 +33,55 @@ def _read_items(path: Path):
     return obj
 
 
+def _read_csv(path: Path) -> pd.DataFrame:
+    """Đọc file CSV do script tải dữ liệu tạo ra (sessions_*.csv). Cột userInputs là chuỗi -> đổi lại thành list."""
+    df = pd.read_csv(path)
+
+    def parse(x):
+        if not isinstance(x, str) or not x.strip():
+            return None
+        try:
+            return json.loads(x)
+        except json.JSONDecodeError:
+            try:
+                return ast.literal_eval(x)
+            except (ValueError, SyntaxError):
+                return None
+
+    if "userInputs" in df.columns:
+        df["userInputs"] = df["userInputs"].apply(parse)
+    return df
+
+
 def load_raw(raw_dir) -> pd.DataFrame:
-    """Đọc mọi file trong raw_dir có tên chứa '.json'."""
+    """Đọc mọi file .json (định dạng ACN-Data) và .csv (sessions_*.csv) trong raw_dir; bỏ qua file manifest_*.
+    Nhiều file (ví dụ 13 đoạn 30 ngày) được nối lại; phiên trùng sessionID sẽ bị bỏ ở bước làm sạch."""
     raw_dir = Path(raw_dir)
     existing = sorted(p.name for p in raw_dir.iterdir()) if raw_dir.exists() else []
-    files = [p for p in sorted(raw_dir.glob("*")) if p.is_file() and ".json" in p.name.lower()]
+    files = [p for p in sorted(raw_dir.glob("*"))
+             if p.is_file() and not p.name.lower().startswith("manifest")
+             and p.suffix.lower() in (".json", ".jsonl", ".csv")]
     if not files:
         raise FileNotFoundError(
-            f"Không thấy file .json nào trong {raw_dir}.\n"
+            f"Không thấy file .json hoặc .csv nào trong {raw_dir}.\n"
             f"Các file đang có trong thư mục: {existing}\n"
-            "Hãy đặt file dữ liệu ACN-Data (JSON) vào thư mục này.")
-    items = []
+            "Hãy đặt file dữ liệu ACN-Data vào thư mục này.")
+    frames = []
     for f in files:
-        got = _read_items(f)
-        items.extend(got)
-        print(f"  đọc {f.name}: {len(got)} phiên")
-    return pd.DataFrame(items)
+        if f.suffix.lower() == ".csv":
+            df = _read_csv(f)
+        else:
+            df = pd.DataFrame(_read_items(f))
+        frames.append(df)
+        print(f"  đọc {f.name}: {len(df)} phiên")
+    return pd.concat(frames, ignore_index=True)
 
 
-def _to_local_naive(s: pd.Series) -> pd.Series:
-    """Chuỗi 'Fri, 01 Mar 2019 16:30:00 GMT' -> Timestamp giờ địa phương, không múi giờ."""
-    t = pd.to_datetime(s, utc=True, errors="coerce")
-    return t.dt.tz_convert(C.TZ).dt.tz_localize(None)
+def _to_utc(s: pd.Series) -> pd.Series:
+    """Chuỗi 'Fri, 01 Mar 2019 16:30:00 GMT' (hoặc ISO có múi giờ) -> Timestamp UTC (giờ thực)."""
+    # format="mixed": đọc từng chuỗi riêng (RFC 1123 của JSON và ISO có múi giờ của CSV). Nếu để pandas tự đoán một
+    # định dạng chung (pandas 3.x) thì phần lớn chuỗi kiểu "Fri, 01 Jun 2018 ..." bị hiểu thành thiếu giờ và bị loại âm thầm.
+    return pd.to_datetime(s, utc=True, errors="coerce", format="mixed")
 
 
 def _last_user_input(x, key):
@@ -72,14 +101,14 @@ def clean_sessions(raw: pd.DataFrame) -> pd.DataFrame:
         log.append(("Sau khi bỏ trùng sessionID", len(df)))
 
     for col in ["connectionTime", "disconnectTime", "doneChargingTime"]:
-        df[col] = _to_local_naive(df[col])
+        df[col] = _to_utc(df[col])
 
     df = df.dropna(subset=["connectionTime", "disconnectTime", "kWhDelivered"])
     log.append(("Sau khi bỏ dòng thiếu giờ đến/giờ rời/kWh", len(df)))
 
-    m = (df["connectionTime"] >= pd.Timestamp(C.MONTH_START)) & (df["connectionTime"] < pd.Timestamp(C.MONTH_END))
+    m = (df["connectionTime"] >= T.utc(C.DATA_START)) & (df["connectionTime"] < T.utc(C.DATA_END))
     df = df[m]
-    log.append((f"Sau khi lọc phiên bắt đầu trong [{C.MONTH_START}, {C.MONTH_END})", len(df)))
+    log.append((f"Sau khi lọc phiên bắt đầu trong [{C.DATA_START}, {C.DATA_END})", len(df)))
 
     df = df[df["disconnectTime"] > df["connectionTime"]]
     log.append(("Sau khi bỏ phiên có giờ rời <= giờ đến", len(df)))
@@ -90,12 +119,13 @@ def clean_sessions(raw: pd.DataFrame) -> pd.DataFrame:
     # khai báo của người dùng (chỉ có ở một số phiên)
     ui = df["userInputs"] if "userInputs" in df.columns else pd.Series([None] * len(df), index=df.index)
     kwh_req = pd.to_numeric(ui.apply(lambda x: _last_user_input(x, "kWhRequested")), errors="coerce")
-    req_dep = _to_local_naive(ui.apply(lambda x: _last_user_input(x, "requestedDeparture")))
+    req_dep = _to_utc(ui.apply(lambda x: _last_user_input(x, "requestedDeparture")))
 
     out = pd.DataFrame({
         "session_id": df["sessionID"] if "sessionID" in df.columns else df.index,
         "space_id": df.get("spaceID"),
         "station_id": df.get("stationID"),
+        "user_id": df.get("userID"),                      # chỉ có từ khoảng 10/2018 trở đi
         "connect": df["connectionTime"],
         "disconnect": df["disconnectTime"],
         "done_charging": df["doneChargingTime"],
@@ -127,9 +157,9 @@ def build_hourly(sessions: pd.DataFrame) -> pd.DataFrame:
         kWh được cấp đều từ lúc cắm đến lúc sạc xong (doneChargingTime),
         rồi cộng dồn phần năng lượng rơi vào từng giờ. Vì mỗi giờ dài 1 h nên kWh = kW trung bình.
     """
-    t0 = pd.Timestamp(C.MONTH_START)
-    n_hours = int((pd.Timestamp(C.MONTH_END) - t0) / pd.Timedelta(hours=1))   # 744
-    idx = pd.date_range(t0, periods=n_hours, freq="h", name="timestamp")
+    t0 = T.utc(C.DATA_START)
+    n_hours = int((T.utc(C.DATA_END) - t0) / pd.Timedelta(hours=1))           # 8760 giờ thực với 12 tháng
+    idx = pd.date_range(t0, periods=n_hours, freq="h", name="timestamp_utc")
 
     N = sessions["connect"].dt.floor("h").value_counts().reindex(idx, fill_value=0).astype(float)
 
@@ -145,7 +175,7 @@ def build_hourly(sessions: pd.DataFrame) -> pd.DataFrame:
                 overlap = min(e, (h + 1) * 60) - max(s, h * 60)
                 if overlap > 0:
                     energy[h] += rate * overlap
-    return pd.DataFrame({"N": N.values, "L": energy}, index=idx)
+    return pd.DataFrame({"local_time": T.local_naive(idx), "N": N.values, "L": energy}, index=idx)
 
 
 # ------------------------------------------------------------------ đặc trưng
@@ -154,16 +184,18 @@ def build_features(hourly: pd.DataFrame) -> pd.DataFrame:
     Dự báo trước 24 giờ  ->  mọi đặc trưng chỉ dùng dữ liệu cách thời điểm cần dự báo >= 24 giờ:
       lag24, lag48, lag168 : giá trị cùng giờ 1 ngày / 2 ngày / 1 tuần trước
       roll7                : trung bình cùng giờ của 7 ngày gần nhất (lag24 ... lag168)
-      hour, dow, is_weekend, is_holiday : đặc trưng lịch
+      hour, dow, is_weekend, is_holiday : đặc trưng lịch, lấy theo GIỜ ĐỊA PHƯƠNG (hành vi theo đồng hồ của người dùng)
+    Trễ tính theo GIỜ THỰC (dịch 24/48/168 hàng trên lưới UTC). Hệ quả: riêng 1–7 ngày sau hai lần chuyển giờ, lag24/lag168
+    trỏ tới giờ địa phương lệch 1 giờ (VD 8:00 hôm nay ứng với 7:00 hoặc 9:00 hôm qua theo đồng hồ).
     """
     df = hourly.copy()
-    idx = df.index
+    idx = T.local(df.index)
     df["hour"] = idx.hour
     df["dow"] = idx.dayofweek
     df["is_weekend"] = (idx.dayofweek >= 5).astype(int)
-    df["is_holiday"] = idx.normalize().isin(pd.to_datetime(C.HOLIDAYS)).astype(int)
+    df["is_holiday"] = pd.Index(T.local_day(df.index)).isin(pd.to_datetime(C.HOLIDAYS)).astype(int)
     for y in ["N", "L"]:
         for lag in (24, 48, 168):
             df[f"{y}_lag{lag}"] = df[y].shift(lag)
         df[f"{y}_roll7"] = sum(df[y].shift(24 * d) for d in range(1, 8)) / 7
-    return df.dropna()          # 168 giờ đầu không đủ lịch sử -> bị loại (còn 576 giờ)
+    return df.dropna()          # 168 giờ đầu không đủ lịch sử -> bị loại (7 ngày đầu của khoảng dữ liệu)

@@ -27,6 +27,7 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.tree import DecisionTreeRegressor
 
 from . import config as C
+from . import timeaxis as T
 
 TARGETS = {"N": "Số xe đến / giờ", "L": "Tải trạm (kW)"}
 CAT_COLS = ["hour", "dow"]
@@ -147,39 +148,45 @@ def metrics(y_true, y_pred):
             float(np.sqrt(mean_squared_error(y_true, y_pred))))
 
 
+def fit_target(y, train, test, verbose=True):
+    """Huấn luyện mọi mô hình cho mục tiêu y trên `train`, dự báo `test`. Trả về (dự báo, mô hình đã khớp, siêu tham số)."""
+    cols = feature_cols(y)
+    Xtr, ytr, Xte = train[cols], train[y].values, test[cols]
+    preds = baseline_predictions(y, train, test)               # baseline: không cần huấn luyện
+    fitted, params = {}, {}
+    for name, (pipe, grid) in build_sklearn_models(y).items():
+        gs = GridSearchCV(pipe, grid, cv=TimeSeriesSplit(n_splits=C.CV_SPLITS),
+                          scoring="neg_mean_absolute_error", refit=True)
+        gs.fit(Xtr, ytr)
+        fitted[name], preds[name] = gs, gs.predict(Xte)
+        params[name] = {k: (None if v is None else v) for k, v in gs.best_params_.items()}
+        if verbose:
+            print(f"[{y}] {name}: tham số tốt nhất {gs.best_params_} | MAE CV = {-gs.best_score_:.3f}")
+    mlp = MLPForecaster(y).fit(Xtr, ytr)
+    fitted["MLP"], preds["MLP"] = mlp, mlp.predict(Xte)
+    params["MLP"] = {"best_epochs": [int(e) for e in mlp.best_epochs_]}
+    if verbose:
+        print(f"[{y}] MLP: epoch tốt nhất theo từng seed {mlp.best_epochs_}")
+    return {k: np.clip(v, 0, None) for k, v in preds.items()}, fitted, params
+
+
 # ================================================================== chạy toàn bộ
 def run():
     C.RESULTS.mkdir(exist_ok=True)
     C.FIGURES.mkdir(exist_ok=True)
-    feats = pd.read_csv(C.DATA_PROC / "features.csv", index_col=0, parse_dates=True)
-    train = feats.loc[C.TRAIN_START:C.TRAIN_END]
-    test = feats.loc[C.TEST_START:C.TEST_END]
+    feats = pd.read_csv(C.DATA_PROC / "features.csv", index_col=0, parse_dates=True)    # chỉ mục = giờ thực UTC
+    train = feats.loc[T.utc(C.TRAIN_START):T.utc(C.TRAIN_END)]
+    test = feats.loc[T.utc(C.TEST_START):T.utc(C.TEST_END)]
     print(f"Huấn luyện: {len(train)} giờ | Kiểm thử: {len(test)} giờ\n")
 
     rows, test_preds, insample = [], {}, {}
     best_params = {}
     for y, ylabel in TARGETS.items():
         cols = feature_cols(y)
-        Xtr, ytr, Xte, yte = train[cols], train[y].values, test[cols], test[y].values
-        preds = baseline_predictions(y, train, test)          # baseline: không cần huấn luyện
-        fitted = {}
-
-        for name, (pipe, grid) in build_sklearn_models(y).items():
-            print(f"[{y}] huấn luyện {name} ...")
-            gs = GridSearchCV(pipe, grid, cv=TimeSeriesSplit(n_splits=C.CV_SPLITS),
-                              scoring="neg_mean_absolute_error", refit=True)
-            gs.fit(Xtr, ytr)
-            fitted[name] = gs
-            preds[name] = gs.predict(Xte)
-            best_params[f"{y}/{name}"] = {k: (None if v is None else v) for k, v in gs.best_params_.items()}
-            print(f"      tham số tốt nhất: {gs.best_params_} | MAE CV = {-gs.best_score_:.3f}")
-
-        print(f"[{y}] huấn luyện MLP ...")
-        mlp = MLPForecaster(y).fit(Xtr, ytr)
-        fitted["MLP"] = mlp
-        preds["MLP"] = mlp.predict(Xte)
-        best_params[f"{y}/MLP"] = {"best_epochs": [int(e) for e in mlp.best_epochs_]}
-        print(f"      epoch tốt nhất theo từng seed: {mlp.best_epochs_}")
+        Xtr, yte = train[cols], test[y].values
+        preds, fitted, params = fit_target(y, train, test)
+        best_params.update({f"{y}/{k}": v for k, v in params.items()})
+        mlp = fitted["MLP"]
 
         # đường cong huấn luyện của MLP (seed đầu tiên)
         h = mlp.histories_[0]
@@ -208,26 +215,28 @@ def run():
                 pd.Series(np.clip(preds[C.RESERVE_MODEL], 0, None), index=test.index)])
             pd.DataFrame({"N_hat": nhat,
                           "split": ["train(in-sample)"] * len(train) + ["test"] * len(test)}
-                         ).rename_axis("timestamp").to_csv(C.RESULTS / "N_hat_hourly.csv")
+                         ).rename_axis("timestamp_utc").to_csv(C.RESULTS / "N_hat_hourly.csv")
 
         # ---- hình dự báo
         plt.figure(figsize=(11, 3.8))
         d = test_preds[y]
-        plt.plot(d.index, d["actual"], "k", lw=1.6, label="Thực tế")
+        x = T.local_naive(d.index)                            # trục hình: giờ địa phương (giờ hiển thị)
+        plt.plot(x, d["actual"], "k", lw=1.6, label="Thực tế")
         for name, st in [("SeasonalNaive_24h", ":"), ("Ridge", "-"), ("RandomForest", "-"), ("MLP", "-")]:
-            plt.plot(d.index, d[name], st, lw=1, label=name)
-        plt.ylabel(ylabel); plt.title(f"Dự báo {ylabel} trên tập kiểm thử (22/03 - 31/03/2019)")
+            plt.plot(x, d[name], st, lw=1, label=name)
+        plt.ylabel(ylabel); plt.title(f"Dự báo {ylabel} trên tập kiểm thử ({x[0]:%d/%m/%Y} - {x[-1]:%d/%m/%Y})")
         plt.legend(ncol=5, fontsize=8); plt.tight_layout()
         plt.savefig(C.FIGURES / f"forecast_{y}.png", dpi=150); plt.close()
 
     res = pd.DataFrame(rows).round(3)
     res.to_csv(C.RESULTS / "forecast_metrics.csv", index=False)
-    pd.concat([test_preds[y].add_prefix(f"{y}_") for y in TARGETS], axis=1).rename_axis("timestamp") \
-        .to_csv(C.RESULTS / "forecast_predictions_test.csv")
+    out = pd.concat([test_preds[y].add_prefix(f"{y}_") for y in TARGETS], axis=1).rename_axis("timestamp_utc")
+    out.insert(0, "local_time", T.local_naive(out.index))     # giờ hiển thị; chỉ mục là giờ thực
+    out.to_csv(C.RESULTS / "forecast_predictions_test.csv")
     with open(C.RESULTS / "forecast_best_params.json", "w", encoding="utf-8") as f:
         json.dump(best_params, f, indent=2, ensure_ascii=False, default=str)
 
-    print("\n=== KẾT QUẢ TRÊN TẬP KIỂM THỬ (240 giờ) ===")
+    print(f"\n=== KẾT QUẢ TRÊN TẬP KIỂM THỬ ({len(test)} giờ) ===")
     for y in TARGETS:
         print(f"\nMục tiêu {y} ({TARGETS[y]})")
         print(res[res.target == y].drop(columns="target").to_string(index=False))
