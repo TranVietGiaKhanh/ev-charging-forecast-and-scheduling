@@ -22,7 +22,6 @@ from . import session_model as SM
 from . import timeaxis as T
 
 RF = f"LP+forecast({C.RESERVE_MODEL})"
-ALT_TARIFF = "TT16_cu"                     # khung giờ cũ: chỉ cần kịch bản oracle cho các kết luận về dự báo xe đến
 
 
 def windows():
@@ -63,16 +62,15 @@ def _session_window(args):
     qk, qd, _ = SM.choose_quantiles(s, f, val0, w0)
     tr, te = s.disconnect < w0, (s.connect >= w0) & (s.connect < w1)
     kp, dp = SM.fit_predict(s, f, tr, te, qk, qd)
-    return wid, qk, qd, pd.DataFrame({"session_id": s.loc[te, "session_id"].values, "kwh_pred": kp, "dur_pred": dp})
+    return wid, qk, qd, pd.DataFrame({"session_id": s.loc[te, "session_id"].values, "kwh_pred": kp.round(6), "dur_pred": dp.round(6)})
 
 
 # ================================================================== lập lịch
 def _daily(P, loads, delivered):
     """Chi phí theo ngày của bước sạc và kWh thiếu theo ngày xe cắm (lịch địa phương)."""
     sday = T.local_day(P.sessions["connect"]).values
-    pday = np.minimum(T.local_day(P.step_time).values, sday.max())      # xe đỗ qua đêm cuối cùng -> ngày cuối
     days = np.unique(sday)
-    cost = pd.Series(loads * P.price * S.DT).groupby(pday).sum().reindex(days, fill_value=0.0)
+    cost = S.daily_costs(P.step_day, P.price, loads, P.demand_charge).sum(axis=1).reindex(days, fill_value=0.0)
     unmet = pd.Series(np.clip(P.E - delivered, 0, None)).groupby(sday).sum().reindex(days, fill_value=0.0)
     return pd.DataFrame({"day": days, "cost": cost.values, "unmet": unmet.values})
 
@@ -123,15 +121,15 @@ def run(workers=6):
         win = fp[fp.window == wid]
         arrivals = {C.RESERVE_MODEL: win[f"N_{C.RESERVE_MODEL}"],
                     "perfect": hourly.loc[(hourly.index >= w0) & (hourly.index < w1), "N"]}
-        for tariff, infos in ((C.TARIFF, C.INFO_SCENARIOS), (ALT_TARIFF, ["oracle"])):
+        for tariff, infos in ((C.TARIFF, C.INFO_SCENARIOS),):
             for info in infos:
                 for p_max in C.BACKTEST_PMAX:
                     jobs.append((wid, w0, sim, defaults, tariff, info, p_max, arrivals))
     with ProcessPoolExecutor(max_workers=workers) as ex:
         out = list(ex.map(_sched_job, jobs))
     summary = pd.DataFrame([r for summ, _ in out for r in summ])
-    base = summary[summary.policy == "FCFS-Uncontrolled"].set_index(["window", "tariff", "info", "p_max_kW"])["total_cost_VND"]
-    summary["cost_saving_vs_uncontrolled_%"] = (100 * (1 - summary["total_cost_VND"].values /
+    base = summary[summary.policy == "FCFS-Uncontrolled"].set_index(["window", "tariff", "info", "p_max_kW"])["total_cost_USD"]
+    summary["cost_saving_vs_uncontrolled_%"] = (100 * (1 - summary["total_cost_USD"].values /
         base.reindex(pd.MultiIndex.from_frame(summary[["window", "tariff", "info", "p_max_kW"]])).values)).round(2)
     summary.to_csv(C.RESULTS / "backtest_summary.csv", index=False)
     pd.concat([d for _, d in out]).round(4).to_csv(C.RESULTS / "backtest_daily.csv", index=False)

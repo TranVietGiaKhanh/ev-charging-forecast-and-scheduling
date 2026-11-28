@@ -72,11 +72,22 @@ def test_partial_steps_follow_real_presence():
 
 
 def test_tariff_bands():
-    t = pd.DatetimeIndex(["2019-03-25 03:00", "2019-03-25 12:00", "2019-03-25 18:00", "2019-03-24 18:00"])  # T2, T2, T2, CN
-    price, peak = S.tariff_bands(t, C.TARIFFS["QD2892_2026"])
-    pr = C.TARIFFS["QD2892_2026"]["price"]
-    assert list(price) == [pr["offpeak"], pr["normal"], pr["peak"], pr["normal"]]
-    assert list(peak) == [False, False, True, False]
+    # SCE TOU-EV-4 (giờ địa phương): mùa đông T2 25/03/2019, T7 30/03/2019; mùa hè T3 10/07/2018
+    t = pd.DatetimeIndex(["2019-03-25 03:00", "2019-03-25 08:00", "2019-03-25 14:00", "2019-03-25 20:00",
+                          "2019-03-25 23:30", "2019-03-30 14:00", "2018-07-10 14:00", "2018-07-10 11:45"])
+    price, peak = S.tariff_bands(t, C.TARIFFS["SCE_TOU_EV_4"])
+    assert list(price) == [0.06087, 0.07492, 0.0869, 0.07492, 0.06087, 0.06087, 0.26668, 0.0925]
+    assert list(peak) == [False, False, True, False, False, False, True, False]
+    # trục giờ thực (UTC) được đổi sang giờ địa phương: 21:00 UTC = 14:00 PDT -> cao điểm
+    p2, k2 = S.tariff_bands(pd.DatetimeIndex(["2019-03-25 21:00"], tz="UTC"), C.TARIFFS["SCE_TOU_EV_4"])
+    assert list(p2) == [0.0869] and list(k2) == [True]
+
+
+def test_demand_charge_is_monthly_peak_spread_over_days():
+    day = pd.to_datetime(["2019-04-01"] * 2 + ["2019-04-02"] * 2)
+    d = S.daily_costs(day, np.array([0.1, 0.1, 0.1, 0.1]), np.array([10.0, 30.0, 20.0, 0.0]), demand_charge=15.0)
+    assert np.allclose(d["energy"], [(10 + 30) * 0.1 * S.DT, 20 * 0.1 * S.DT])
+    assert np.allclose(d["demand"], [15.0 * 30 / 30] * 2)            # đỉnh tháng 4 = 30 kW, chia cho 30 ngày
 
 
 def test_session_history_has_no_leakage():
@@ -97,5 +108,5 @@ def test_session_history_has_no_leakage():
 
 if __name__ == "__main__":
     test_tariff_bands(); test_invariants_and_offline_is_lower_bound(); test_session_history_has_no_leakage()
-    test_partial_steps_follow_real_presence()
+    test_partial_steps_follow_real_presence(); test_demand_charge_is_monthly_peak_spread_over_days()
     print("OK")

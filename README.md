@@ -40,7 +40,6 @@ python run_01_preprocess.py      # -> data/processed/*.csv
 python run_02_forecast.py        # -> results/forecast_*.csv, figures/forecast_*.png, mlp_training_curve_*.png
 python run_02b_session_model.py  # -> results/session_predictions.csv, session_model_metrics.csv (~2 phút)
 python run_03_schedule.py        # -> results/schedule_*.csv, figures/schedule_*.png (~3 phút, chạy song song 6 tiến trình)
-python run_03_schedule.py --tariff TT16_cu   # khung giờ cũ, cần cho phần so sánh và kiểm định
 python run_05_backtest.py        # -> results/backtest_*.csv (kiểm thử nhiều giai đoạn, ~20 phút)
 python run_04_stats.py           # -> results/stats_*.csv (kiểm định thống kê, gồm cả gộp nhiều giai đoạn nếu đã chạy run_05)
 ```
@@ -54,7 +53,7 @@ python run_02_forecast.py
 python run_03_schedule.py
 ```
 
-Tùy chọn của bước 3: `--pmax 30 40` (các mức giới hạn trạm), `--skip-lp` (bỏ LP cho nhanh), `--tariff TT16_cu` (khung giờ cũ), `--workers 6` (số tiến trình song song; giảm nếu máy ít RAM).
+Tùy chọn của bước 3: `--pmax 30 40` (các mức giới hạn trạm), `--skip-lp` (bỏ LP cho nhanh), `--workers 6` (số tiến trình song song; giảm nếu máy ít RAM).
 
 ## 3. Lấy dữ liệu ACN-Data
 
@@ -112,12 +111,24 @@ toàn bộ train đúng số epoch đó, lặp với 5 hạt giống và lấy t
   đến thực tế: cận trên của lợi ích mà một dự báo số xe đến có thể mang lại), và `Offline-optimal`
   (một LP cho cả giai đoạn, biết trước mọi xe; là cận dưới chi phí, chỉ chạy ở kịch bản `oracle`).
 * **Quét nhiều mức P_max** (`P_MAX_LIST`, mặc định 20–40 kW) để thấy đánh đổi giữa chi phí và năng lượng không đáp ứng.
-* **Biểu giá sạc xe điện 3 bậc** (`TARIFFS`, đ/kWh, chưa gồm VAT): mức giá theo QĐ 2892/QĐ-BCT (áp dụng từ 01/11/2026),
-  khung giờ theo QĐ 963/QĐ-BCT: cao điểm 17:30–22:30 thứ 2–thứ 7 (Chủ nhật không có), thấp điểm 00:00–06:00, còn lại là bình thường.
-  Trạm giả định đấu nối **hạ áp (đến 1 kV)** vì chỉ vài chục kW, dùng lưới hạ áp của tòa nhà: mặc định `QD2892_2026` =
-  1.620 / 2.700 / 4.212 (thấp điểm / bình thường / cao điểm). `--tariff QD2892_trung_ap` dùng giá trung áp (trên 1 kV)
-  1.534 / 2.549 / 3.758 để xem độ nhạy; `--tariff TT16_cu` dùng khung giờ cũ với cùng giá hạ áp để tách ảnh hưởng của khung giờ
-  (file kết quả có hậu tố `_<tên biểu giá>`).
+* **Biểu giá khớp với dữ liệu: SCE TOU-EV-4** (Southern California Edison, biểu giá cho hệ thống sạc xe điện đo đếm riêng,
+  đơn vị USD, theo giờ địa phương California). Đây là biểu giá nhóm tác giả ACN dùng với chính dữ liệu Caltech:
+  [Lee et al., IEEE TSG 2021, mục VI-D, Bảng III](https://arxiv.org/abs/2012.02636) và file
+  [`sce_tou_ev_4_march_2019.json` trong acnportal](https://github.com/zach401/acnportal/blob/master/acnportal/signals/tariffs/tariff_schedules/sce_tou_ev_4_march_2019.json)
+  (biểu giá gốc của SCE: <https://www1.sce.com/NR/sc3/tm2/pdf/ce141-12.pdf>).
+
+  | Ngày thường (thứ 2–6) | Mùa hè (01/06–30/09) | Mùa đông (01/10–31/05) |
+  |---|---|---|
+  | 0:00–8:00, 23:00–24:00 | $0,05623/kWh | $0,06087/kWh |
+  | 8:00–12:00, 18:00–23:00 | $0,0925/kWh | $0,07492/kWh |
+  | 12:00–18:00 (cao điểm) | $0,26668/kWh | $0,0869/kWh |
+  | Cuối tuần, cả ngày | $0,05623/kWh | $0,06087/kWh |
+
+  Phí công suất đỉnh **$15,51/kW/tháng** trên đỉnh 15 phút của tháng, được cộng vào chi phí của mọi chiến lược
+  (`scheduling.daily_costs`): phí của tháng chia đều cho số ngày của tháng, tháng chỉ có một phần trong khoảng mô phỏng thì
+  chỉ tính phần ngày có mặt. LP vẫn tối ưu theo giá điện năng, còn giới hạn P_max quyết định đỉnh. Khoảng kiểm thử
+  (22/03–30/04/2019) và mọi cửa sổ kiểm thử nhiều giai đoạn (từ 05/10/2018) đều thuộc mùa đông. Hệ số phạt LP tính theo USD:
+  `BIG_M` = 10 $/kWh, `BIG_M_FORECAST` = 1 $/kWh, `EPS_EARLY` = 1e-5 $/kWh mỗi bước.
 * Kết quả: `results/schedule_summary.csv` (mọi kịch bản × P_max), `figures/schedule_tradeoff.png` (đánh đổi theo P_max),
   `schedule_comparison.png` và `schedule_load_profile_day.png` (ở `P_MAX_KW`).
 * Kiểm tra bất biến: `python tests/test_scheduling.py` (không vượt P_max, không cấp quá nhu cầu, tối ưu biết trước ≤ LP cuốn chiếu,
@@ -142,14 +153,13 @@ python make_demo_page.py        # -> docs/demo.html
 ```
 
 Một file HTML duy nhất, mở bằng trình duyệt (bấm đúp), **không cần mạng**: dữ liệu và Chart.js (`docs/vendor/`, giấy phép MIT)
-được nhúng sẵn. Gồm 5 phần: dữ liệu, dự báo (chọn đại lượng/tuần/mô hình), lập lịch (chọn P_max, kịch bản thông tin, ngày),
-đánh đổi theo P_max, so sánh khung giờ. Cần chạy run_01–run_03 (cả run_02b) trước; phần khung giờ chỉ hiện khi đã chạy
-`python run_03_schedule.py --tariff TT16_cu`. Chạy lại `make_demo_page.py` mỗi khi kết quả thay đổi.
+được nhúng sẵn. Gồm 4 phần: dữ liệu, dự báo (chọn đại lượng/tuần/mô hình), lập lịch (chọn P_max, kịch bản thông tin, ngày),
+đánh đổi theo P_max. Cần chạy run_01–run_03 (cả run_02b) trước. Chạy lại `make_demo_page.py` mỗi khi kết quả thay đổi.
 
 ## 8. Lưu ý
 
 * Số phiên sau làm sạch phụ thuộc quy tắc lọc trong `clean_sessions` (xem nhật ký in ra); chỉnh `MIN_KWH` và các bước lọc nếu cần.
-* `cost_saving_vs_uncontrolled_%` chỉ có ý nghĩa khi so sánh các chiến lược cùng đáp ứng đủ năng lượng; hãy đọc kèm `pct_energy_served` và `cost_per_kWh_VND`.
+* `cost_saving_vs_uncontrolled_%` chỉ có ý nghĩa khi so sánh các chiến lược cùng đáp ứng đủ năng lượng; hãy đọc kèm `pct_energy_served` và `cost_per_kWh_USD` (gồm phí công suất đỉnh; tách riêng ở `energy_cost_USD`, `demand_cost_USD`).
 * Phạt `EPS_EARLY` trong LP chỉ là cách phá hòa: khi hai thời điểm cùng giá thì ưu tiên sạc sớm.
 * Ngưỡng "nhiều xe đến" của `LP+reserve` là phân vị 75% của `N` trên tập train, nay tính trên ~11 tháng thay vì 2 tuần nên khác bản cũ.
 * **Thời gian:** mọi mốc lưu theo giờ thực (UTC); chỉ mục các bảng theo giờ là `timestamp_utc`, cột `local_time`/`time_local`

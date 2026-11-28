@@ -5,27 +5,20 @@ Dự báo,MLP so với RandomForest,"N, tập kiểm thử",% giảm MAE,4.118,1
 Dự báo,RandomForest so với SeasonalNaive_24h,"L, tập kiểm thử",% giảm MAE,34.699,30.542,38.55,0.0,40,có
 Dự báo,RandomForest so với SeasonalNaive_168h,"L, tập kiểm thử",% giảm MAE,12.782,7.304,17.774,0.0,40,có
 Dự báo,RandomForest so với MLP,"L, tập kiểm thử",% giảm MAE,0.689,-2.237,3.407,0.3137,40,không
-Lập lịch,LP-rolling so với FCFS-Uncontrolled,"QD2892_2026, oracle, 40 kW",% tiết kiệm chi phí,5.335,3.993,6.715,0.0,40,có
-Giá trị dự báo xe đến,LP+forecast(RandomForest) so với LP-rolling,"QD2892_2026, oracle, 20 kW",kWh thiếu giảm được,28.255,5.14,53.402,0.007,23,có
-Giá trị dự báo xe đến,LP+forecast(perfect) so với LP+forecast(RandomForest),"QD2892_2026, oracle, 20 kW",kWh thiếu giảm được,7.823,0.105,16.967,0.0011,18,có
-Giá trị dự báo xe đến,LP+forecast(RandomForest) so với LP-rolling,"QD2892_2026, oracle, 25 kW",kWh thiếu giảm được,20.993,4.4,38.996,0.0,8,có
-Giá trị dự báo xe đến,LP+forecast(perfect) so với LP+forecast(RandomForest),"QD2892_2026, oracle, 25 kW",kWh thiếu giảm được,0.078,-4.601,4.827,0.3668,6,không
-Giá trị dự báo xe đến,LP+forecast(RandomForest) so với LP-rolling,"QD2892_2026, oracle, 30 kW",kWh thiếu giảm được,4.106,0.0,12.318,0.2834,2,không
-Giá trị dự báo xe đến,LP+forecast(perfect) so với LP+forecast(RandomForest),"QD2892_2026, oracle, 30 kW",kWh thiếu giảm được,3.322,0.0,9.967,0.2834,2,không
-Giá trị dự báo từng xe,predicted so với declared (LP-rolling),"QD2892_2026, 20 kW",% giảm kWh thiếu,4.714,2.633,7.134,0.0,36,có
-Giá trị dự báo từng xe,predicted so với declared (LP-rolling),"QD2892_2026, 25 kW",% giảm kWh thiếu,12.665,7.816,17.575,0.0,35,có
-Giá trị dự báo từng xe,predicted so với declared (LP-rolling),"QD2892_2026, 30 kW",% giảm kWh thiếu,20.517,7.027,32.738,0.0036,33,có
-Giá trị dự báo từng xe,predicted so với declared (LP-rolling),"QD2892_2026, 35 kW",% giảm kWh thiếu,26.677,14.798,37.28,0.0007,31,có
-Giá trị dự báo từng xe,predicted so với declared (LP-rolling),"QD2892_2026, 40 kW",% giảm kWh thiếu,43.09,18.824,58.634,0.0001,31,có
-Lập lịch,LLF so với LP-rolling,"QD2892_2026, predicted, 40 kW",kWh thiếu giảm được,68.902,24.902,111.309,0.0005,21,có
-Lập lịch,LP+reserve(g=0.1) so với LP-rolling,"QD2892_2026, declared, 40 kW",% tiết kiệm chi phí,-0.174,-0.346,-0.043,0.9985,26,có
-Lập lịch,LP+reserve(g=0.1) so với LP-rolling,"QD2892_2026, declared, 40 kW",kWh thiếu giảm được,16.342,4.755,31.116,0.0015,19,có
-Lập lịch,LP+reserve(g=0.2) so với LP-rolling,"QD2892_2026, declared, 40 kW",% tiết kiệm chi phí,-0.089,-0.197,0.014,0.9521,28,không
-Lập lịch,LP+reserve(g=0.2) so với LP-rolling,"QD2892_2026, declared, 40 kW",kWh thiếu giảm được,7.325,-2.239,17.156,0.069,23,không
-Lập lịch,LP-rolling so với FCFS-Uncontrolled,"TT16_cu, oracle, 40 kW",% tiết kiệm chi phí,15.439,13.125,17.469,0.0,40,có
-Giá trị dự báo xe đến,LP+forecast(RandomForest) so với LP-rolling,"TT16_cu, oracle, 20 kW",kWh thiếu giảm được,121.415,50.786,199.45,0.0,26,có
-Giá trị dự báo xe đến,LP+forecast(perfect) so với LP+forecast(RandomForest),"TT16_cu, oracle, 20 kW",kWh thiếu giảm được,7.704,-0.459,18.698,0.0377,18,không
-Giá trị dự báo xe đến,LP+forecast(RandomForest) so với LP-rolling,"TT16_cu, oracle, 25 kW",kWh thiếu giảm được,144.612,56.85,236.63,0.0,13,có
-Giá trị dự báo xe đến,LP+forecast(perfect) so với LP+forecast(RandomForest),"TT16_cu, oracle, 25 kW",kWh thiếu giảm được,11.668,-0.324,29.652,0.0307,7,không
-Giá trị dự báo xe đến,LP+forecast(RandomForest) so với LP-rolling,"TT16_cu, oracle, 30 kW",kWh thiếu giảm được,37.142,1.626,73.538,0.0154,4,có
-Giá trị dự báo xe đến,LP+forecast(perfect) so với LP+forecast(RandomForest),"TT16_cu, oracle, 30 kW",kWh thiếu giảm được,1.414,-0.715,4.957,0.3389,2,không
+Lập lịch,LP-rolling so với FCFS-Uncontrolled,"SCE_TOU_EV_4, oracle, 40 kW",% tiết kiệm chi phí,42.491,38.477,45.265,0.0,40,có
+Giá trị dự báo xe đến,LP+forecast(RandomForest) so với LP-rolling,"SCE_TOU_EV_4, oracle, 20 kW",kWh thiếu giảm được,13.753,5.116,22.793,0.0,20,có
+Giá trị dự báo xe đến,LP+forecast(perfect) so với LP+forecast(RandomForest),"SCE_TOU_EV_4, oracle, 20 kW",kWh thiếu giảm được,0.743,-2.174,3.914,0.3271,21,không
+Giá trị dự báo xe đến,LP+forecast(RandomForest) so với LP-rolling,"SCE_TOU_EV_4, oracle, 25 kW",kWh thiếu giảm được,5.585,0.319,13.042,0.0087,7,có
+Giá trị dự báo xe đến,LP+forecast(perfect) so với LP+forecast(RandomForest),"SCE_TOU_EV_4, oracle, 25 kW",kWh thiếu giảm được,-0.117,-1.613,1.581,0.5689,8,không
+Giá trị dự báo xe đến,LP+forecast(RandomForest) so với LP-rolling,"SCE_TOU_EV_4, oracle, 30 kW",kWh thiếu giảm được,6.843,1.22,13.034,0.0126,6,có
+Giá trị dự báo xe đến,LP+forecast(perfect) so với LP+forecast(RandomForest),"SCE_TOU_EV_4, oracle, 30 kW",kWh thiếu giảm được,-2.449,-5.942,0.0,0.9748,4,không
+Giá trị dự báo từng xe,predicted so với declared (LP-rolling),"SCE_TOU_EV_4, 20 kW",% giảm kWh thiếu,3.213,0.518,6.256,0.0079,33,có
+Giá trị dự báo từng xe,predicted so với declared (LP-rolling),"SCE_TOU_EV_4, 25 kW",% giảm kWh thiếu,8.865,4.962,15.331,0.0,30,có
+Giá trị dự báo từng xe,predicted so với declared (LP-rolling),"SCE_TOU_EV_4, 30 kW",% giảm kWh thiếu,18.971,6.17,34.933,0.0025,29,có
+Giá trị dự báo từng xe,predicted so với declared (LP-rolling),"SCE_TOU_EV_4, 35 kW",% giảm kWh thiếu,39.074,23.65,57.649,0.0,28,có
+Giá trị dự báo từng xe,predicted so với declared (LP-rolling),"SCE_TOU_EV_4, 40 kW",% giảm kWh thiếu,55.009,34.127,69.273,0.0,28,có
+Lập lịch,LLF so với LP-rolling,"SCE_TOU_EV_4, predicted, 40 kW",kWh thiếu giảm được,72.108,27.967,118.676,0.0,22,có
+Lập lịch,LP+reserve(g=0.1) so với LP-rolling,"SCE_TOU_EV_4, declared, 40 kW",% tiết kiệm chi phí,-0.022,-0.115,0.048,0.6729,25,không
+Lập lịch,LP+reserve(g=0.1) so với LP-rolling,"SCE_TOU_EV_4, declared, 40 kW",kWh thiếu giảm được,2.922,-10.827,20.995,0.4014,18,không
+Lập lịch,LP+reserve(g=0.2) so với LP-rolling,"SCE_TOU_EV_4, declared, 40 kW",% tiết kiệm chi phí,-0.041,-0.075,-0.007,0.9908,27,có
+Lập lịch,LP+reserve(g=0.2) so với LP-rolling,"SCE_TOU_EV_4, declared, 40 kW",kWh thiếu giảm được,5.656,-1.76,12.786,0.0692,20,không

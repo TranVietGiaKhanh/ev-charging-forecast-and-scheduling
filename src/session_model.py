@@ -69,7 +69,7 @@ def _lp_objective(sess, t0):
     tot = 0.0
     for p_max in C.SESSION_VAL_PMAX:
         r = S.summarize(P, S.run_lp_policy(P, p_max, verbose=False), p_max)
-        tot += r["total_cost_VND"] + C.BIG_M * max(r["unmet_energy_kWh"], 0.0)
+        tot += r["total_cost_USD"] + C.BIG_M * max(r["unmet_energy_kWh"], 0.0)
     return tot
 
 
@@ -107,7 +107,7 @@ def run():
     # ---- 2) huấn luyện lại trên toàn bộ giai đoạn trước SIM_START, dự báo cho khoảng mô phỏng
     kp, dp = fit_predict(s, f, tr, te, qk, qd)
     km, dm = fit_predict(s, f, tr, te, 0.5, 0.5)                   # bản trung vị: chỉ để so độ chính xác
-    pd.DataFrame({"session_id": s.loc[te, "session_id"].values, "kwh_pred": kp, "dur_pred": dp}   # giữ đủ độ chính xác
+    pd.DataFrame({"session_id": s.loc[te, "session_id"].values, "kwh_pred": kp.round(6), "dur_pred": dp.round(6)}   # 6 chữ số: cùng đầu vào với run_05 (tránh nhiễu 1e-14 khi ghi/đọc CSV làm LP chọn nghiệm khác)
                  ).to_csv(C.RESULTS / "session_predictions.csv", index=False)
 
     # ---- 3) độ chính xác so với cách "declared" (khai báo, thiếu thì dùng trung vị quá khứ)

@@ -5,62 +5,62 @@
     {
       "q_kwh": 0.5,
       "q_dur": 0.3,
-      "val_objective": 139580919
+      "val_objective": 11555
     },
     {
       "q_kwh": 0.5,
       "q_dur": 0.15,
-      "val_objective": 121274881
+      "val_objective": 9560
     },
     {
       "q_kwh": 0.5,
       "q_dur": 0.05,
-      "val_objective": 140491508
+      "val_objective": 11265
     },
     {
       "q_kwh": 0.7,
       "q_dur": 0.3,
-      "val_objective": 128309947
+      "val_objective": 10578
     },
     {
       "q_kwh": 0.7,
       "q_dur": 0.15,
-      "val_objective": 116798342
+      "val_objective": 9007
     },
     {
       "q_kwh": 0.7,
       "q_dur": 0.05,
-      "val_objective": 143079366
+      "val_objective": 11616
     },
     {
       "q_kwh": 0.85,
       "q_dur": 0.3,
-      "val_objective": 124073017
+      "val_objective": 9802
     },
     {
       "q_kwh": 0.85,
       "q_dur": 0.15,
-      "val_objective": 116119651
+      "val_objective": 8915
     },
     {
       "q_kwh": 0.85,
       "q_dur": 0.05,
-      "val_objective": 147882998
+      "val_objective": 11959
     },
     {
       "q_kwh": 0.95,
       "q_dur": 0.3,
-      "val_objective": 119088987
+      "val_objective": 9180
     },
     {
       "q_kwh": 0.95,
       "q_dur": 0.15,
-      "val_objective": 118485404
+      "val_objective": 9227
     },
     {
       "q_kwh": 0.95,
       "q_dur": 0.05,
-      "val_objective": 152821972
+      "val_objective": 12499
     }
   ]
 }

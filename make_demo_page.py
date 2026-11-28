@@ -1,8 +1,7 @@
 """
 Sinh trang demo tương tác: docs/demo.html (một file duy nhất, mở bằng trình duyệt, KHÔNG cần mạng).
 
-Chạy:  python make_demo_page.py        (sau run_01, run_02, run_03; muốn có phần so sánh khung giờ cũ thì
-                                        chạy thêm  python run_03_schedule.py --tariff TT16_cu)
+Chạy:  python make_demo_page.py        (sau run_01, run_02, run_02b, run_03)
 Dữ liệu lấy từ data/processed/ và results/; Chart.js được nhúng từ docs/vendor/chart.umd.min.js.
 """
 import json
@@ -38,10 +37,14 @@ def build_data():
     load_cols = [c for c in prof.columns if c.count("/") == 2]
     band = np.where(prof["is_peak"], "p", np.where(prof["price"] == prof["price"].min(), "o", "n"))
 
-    summ = {"QD2892_2026": pd.read_csv(C.RESULTS / "schedule_summary.csv")}
-    old = C.RESULTS / "schedule_summary_TT16_cu.csv"
-    if old.exists():
-        summ["TT16_cu"] = pd.read_csv(old)
+    summ = {"main": pd.read_csv(C.RESULTS / "schedule_summary.csv")}
+    tf = C.TARIFFS[C.TARIFF]
+    win = next(x for x in tf["seasons"] if pd.Timestamp(C.SIM_START).month in x["months"])   # mùa của khoảng mô phỏng
+    usd = lambda x: f"${x:.4f}".replace(".", ",")
+    pr = dict(zip(win["weekday_start_h"], win["weekday_price"]))
+    tariff_text = (f"Giá điện {tf['name']} ({win['name'].lower()}, ngày thường): cao điểm 12–18 giờ {usd(pr[12])}, "
+                   f"8–12 giờ và 18–23 giờ {usd(pr[8])}, đêm {usd(pr[0])}/kWh; cuối tuần {usd(win['weekend_price'])}/kWh; "
+                   f"phí công suất đỉnh ${tf['demand_charge']:.2f}/kW/tháng".replace(".", ",") + ".")
     sim = s[(s.connect >= T.utc(C.SIM_START)) & (s.connect < T.utc(C.SIM_END))]
     sm = C.RESULTS / "session_model_metrics.csv"
     sm = pd.read_csv(sm).to_dict(orient="records") if sm.exists() else None
@@ -50,7 +53,7 @@ def build_data():
         "meta": {"n_sessions": len(s), "n_hours": len(h), "sim_sessions": len(sim),
                  "data_start": C.DATA_START[:10], "data_end": "2019-04-30",
                  "sim_start": C.SIM_START[:10], "port_kw": C.PORT_MAX_KW,
-                 "tariff": C.TARIFFS["QD2892_2026"]},
+                 "tariff_text": tariff_text},
         "session_metrics": sm,
         "monthly": {"labels": [p.strftime("%m/%Y") for p in m.index], "values": [int(v) for v in m.values]},
         "hourly": {"N_wd": rnd(wd.groupby(hwd).N.mean()), "N_we": rnd(we.groupby(hwe).N.mean()),
@@ -172,7 +175,7 @@ footer { max-width: 1180px; margin: 0 auto; padding: 0 16px 32px; color: var(--t
 </header>
 <nav><div class="in">
   <a href="#data">1. Dữ liệu</a><a href="#forecast">2. Dự báo</a><a href="#sched">3. Lập lịch</a>
-  <a href="#tradeoff">4. Đánh đổi theo P_max</a><a href="#tariff">5. Khung giờ giá điện</a>
+  <a href="#tradeoff">4. Đánh đổi theo P_max</a>
 </div></nav>
 <main>
 
@@ -228,27 +231,21 @@ footer { max-width: 1180px; margin: 0 auto; padding: 0 16px 32px; color: var(--t
 
 <section id="tradeoff">
   <h2>4. Đánh đổi theo P_max</h2>
-  <p class="lead">Giới hạn công suất càng thấp thì càng tốn tiền và càng sạc thiếu. Dưới khoảng 30 kW, mọi chiến lược đều không đáp ứng đủ.</p>
+  <p class="lead">Giới hạn công suất càng thấp thì phí công suất đỉnh càng nhỏ nên chi phí mỗi kWh thấp hơn, nhưng xe bị sạc thiếu nhiều hơn. Dưới khoảng 30 kW, mọi chiến lược đều không đáp ứng đủ.</p>
   <div class="controls"><div class="ctl"><span>Thông tin về xe</span><div class="seg" id="t-info"></div></div></div>
   <div class="grid2">
-    <div class="card"><h3>Chi phí trung bình (đ/kWh)</h3><p class="note">Càng thấp càng tốt.</p><div class="chart"><canvas id="c-cost" role="img" aria-label="Chi phí theo P_max"></canvas></div></div>
+    <div class="card"><h3>Chi phí trung bình ($/kWh, gồm phí công suất đỉnh)</h3><p class="note">Càng thấp càng tốt.</p><div class="chart"><canvas id="c-cost" role="img" aria-label="Chi phí theo P_max"></canvas></div></div>
     <div class="card"><h3>Năng lượng không đáp ứng (kWh)</h3><p class="note">Càng thấp càng tốt.</p><div class="chart"><canvas id="c-unmet" role="img" aria-label="Năng lượng thiếu theo P_max"></canvas></div></div>
   </div>
 </section>
 
-<section id="tariff">
-  <h2>5. Khung giờ giá điện mới và cũ</h2>
-  <p class="lead">Cùng mức giá, chỉ khác khung giờ. Mới (QĐ 963/QĐ-BCT): cao điểm 17:30–22:30. Cũ: cao điểm 09:30–11:30 và 17:00–20:00.</p>
-  <div class="card"><h3 id="tf-title"></h3><p class="note">Tiết kiệm so với sạc không điều khiển, kịch bản biết đúng thông tin.</p>
-    <div class="chart"><canvas id="c-tariff" role="img" aria-label="Tiết kiệm theo khung giờ"></canvas></div>
-    <p class="insight" id="tf-insight"></p></div>
-</section>
 </main>
 <footer id="foot"></footer>
 
 <script>__CHARTJS__</script>
 <script>
 const D = __DATA__;
+const usd = (x) => x == null ? "–" : "$" + nf(x, 4);
 const nf = (x, d = 0) => x == null ? "–" : new Intl.NumberFormat("vi-VN", { minimumFractionDigits: d, maximumFractionDigits: d }).format(x);
 const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const $ = (id) => document.getElementById(id);
@@ -351,7 +348,7 @@ function drawForecast() {
 }
 
 // ================================================================ 3. lập lịch
-const S = D.sched, PLIST = [...new Set(S.summary.QD2892_2026.map((r) => r.p_max_kW))];
+const S = D.sched, PLIST = [...new Set(S.summary.main.map((r) => r.p_max_kW))];
 const nDays = Math.floor(S.band.length / 96);
 const bandPlugin = { id: "bands", beforeDatasetsDraw(c, args, o) {
   if (!o.band) return; const { ctx, chartArea: a, scales: { x } } = c; const w = x.getPixelForValue(1) - x.getPixelForValue(0);
@@ -363,7 +360,7 @@ function polsOf(info) { return POLS.filter((p) => S.loads[`${info}/${st.pmax}/${
 
 function drawSched() {
   const M = D.meta;
-  $("sched-lead").textContent = `Mô phỏng bước 15 phút trên ${nf(M.sim_sessions)} phiên của khoảng kiểm thử (từ 22/03/2019). Mỗi xe tối đa ${nf(M.port_kw)} kW; trạm không được vượt P_max. Giá điện sạc xe điện (hạ áp) 3 bậc: cao điểm ${nf(M.tariff.price.peak)} đ, bình thường ${nf(M.tariff.price.normal)} đ, thấp điểm ${nf(M.tariff.price.offpeak)} đ/kWh.`;
+  $("sched-lead").textContent = `Mô phỏng bước 15 phút trên ${nf(M.sim_sessions)} phiên của khoảng kiểm thử (từ 22/03/2019). Mỗi xe tối đa ${nf(M.port_kw)} kW; trạm không được vượt P_max. ${M.tariff_text}`;
   seg($("s-pmax"), PLIST.map((p) => [p, p + " kW"]), st.pmax, (v) => { st.pmax = v; drawSched(); });
   seg($("s-info"), Object.entries(INFO), st.info, (v) => { st.info = v; drawSched(); });
   const sel = $("s-day");
@@ -378,11 +375,11 @@ function drawSched() {
   chips($("s-pols"), avail, st.pols, (p) => PCOL[p], (p) => PNAME[p], drawSched);
 
   // ---- ô số: LP cuốn chiếu so với không điều khiển (cả khoảng mô phỏng)
-  const u = row("QD2892_2026", st.info, st.pmax, "FCFS-Uncontrolled"), lp = row("QD2892_2026", st.info, st.pmax, "LP-rolling"),
-        llf = row("QD2892_2026", st.info, st.pmax, "LLF");
+  const u = row("main", st.info, st.pmax, "FCFS-Uncontrolled"), lp = row("main", st.info, st.pmax, "LP-rolling"),
+        llf = row("main", st.info, st.pmax, "LLF");
   $("s-tiles").innerHTML = [
     ["Đỉnh tải", `${nf(u.peak_load_kW, 0)} → ${nf(lp.peak_load_kW, 0)} kW`, `không điều khiển → LP cuốn chiếu`],
-    ["Chi phí của LP cuốn chiếu", `${nf(lp.cost_per_kWh_VND)} đ/kWh`, `không điều khiển: ${nf(u.cost_per_kWh_VND)} đ/kWh`],
+    ["Chi phí của LP cuốn chiếu", `${usd(lp.cost_per_kWh_USD)}/kWh`, `không điều khiển: ${usd(u.cost_per_kWh_USD)}/kWh`],
     ["Tiết kiệm của LP", `${nf(lp["cost_saving_vs_uncontrolled_%"], 1)}%`, `LLF: ${nf(llf["cost_saving_vs_uncontrolled_%"], 1)}%`],
     ["Năng lượng LP đáp ứng", `${nf(lp.pct_energy_served, 2)}%`, `LLF: ${nf(llf.pct_energy_served, 2)}%`],
   ].map(([k, v, d]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="d">${d}</div></div>`).join("");
@@ -403,18 +400,18 @@ function drawSched() {
 
   // ---- bảng tổng hợp
   $("s-tab-title").textContent = `Kết quả cả khoảng mô phỏng — ${INFO[st.info]}, P_max = ${st.pmax} kW`;
-  const rows = POLS.map((p) => row("QD2892_2026", st.info, st.pmax, p)).filter(Boolean);
-  $("t-sched").innerHTML = `<tr><th>Chiến lược</th><th>Chi phí (đ/kWh)</th><th>% năng lượng đáp ứng</th><th>Thiếu (kWh)</th><th>Đỉnh tải (kW)</th><th>Sạc giờ cao điểm (kWh)</th><th>Tiết kiệm</th></tr>` +
+  const rows = POLS.map((p) => row("main", st.info, st.pmax, p)).filter(Boolean);
+  $("t-sched").innerHTML = `<tr><th>Chiến lược</th><th>Chi phí ($/kWh)</th><th>% năng lượng đáp ứng</th><th>Thiếu (kWh)</th><th>Đỉnh tải (kW)</th><th>Sạc giờ cao điểm (kWh)</th><th>Tiết kiệm</th></tr>` +
     rows.map((r) => `<tr class="${r.policy === "LP-rolling" ? "hl" : ""}"><td><span class="sw" style="display:inline-block;width:12px;height:3px;border-radius:2px;vertical-align:middle;margin-right:8px;background:var(${PCOL[r.policy]})"></span>${PNAME[r.policy]}</td>
-      <td>${nf(r.cost_per_kWh_VND)}</td><td>${nf(r.pct_energy_served, 2)}%</td><td>${nf(Math.max(0, r.unmet_energy_kWh), 1)}</td><td>${nf(r.peak_load_kW, 1)}</td>
+      <td>${usd(r.cost_per_kWh_USD)}</td><td>${nf(r.pct_energy_served, 2)}%</td><td>${nf(Math.max(0, r.unmet_energy_kWh), 1)}</td><td>${nf(r.peak_load_kW, 1)}</td>
       <td>${nf(r.peak_window_energy_kWh, 0)}</td><td>${nf(r["cost_saving_vs_uncontrolled_%"], 2)}%</td></tr>`).join("");
-  const off = row("QD2892_2026", st.info, st.pmax, "Offline-optimal");
-  const fc = row("QD2892_2026", st.info, st.pmax, "LP+forecast(RandomForest)");
+  const off = row("main", st.info, st.pmax, "Offline-optimal");
+  const fc = row("main", st.info, st.pmax, "LP+forecast(RandomForest)");
   const unm = (r) => nf(Math.max(0, r.unmet_energy_kWh), 1);
   const fcTxt = fc ? ` Thêm "xe ảo" từ dự báo số xe đến (RF) vào LP: thiếu ${unm(lp)} → ${unm(fc)} kWh.` : "";
-  const dl = row("QD2892_2026", "declared", st.pmax, "LP-rolling"), SM = D.session_metrics;
+  const dl = row("main", "declared", st.pmax, "LP-rolling"), SM = D.session_metrics;
   if (st.info === "oracle") {
-    $("s-insight").innerHTML = `Khi biết đúng kWh cần và giờ rời, <b>LP cuốn chiếu đạt ${nf(lp.cost_per_kWh_VND)} đ/kWh, so với ${nf(off.cost_per_kWh_VND)} đ/kWh của nghiệm tối ưu biết trước</b>, dù không biết trước xe nào sẽ đến. Xe đỗ trung bình 5–6 giờ nhưng chỉ cần 1–2 giờ để sạc đủ, nên còn nhiều thời gian để dời việc sạc khỏi giờ cao điểm.` +
+    $("s-insight").innerHTML = `Khi biết đúng kWh cần và giờ rời, <b>LP cuốn chiếu đạt ${usd(lp.cost_per_kWh_USD)}/kWh, so với ${usd(off.cost_per_kWh_USD)}/kWh của nghiệm tối ưu biết trước</b>, dù không biết trước xe nào sẽ đến. Xe đỗ trung bình 5–6 giờ nhưng chỉ cần 1–2 giờ để sạc đủ, nên còn nhiều thời gian để dời việc sạc khỏi giờ cao điểm.` +
       (lp.unmet_energy_kWh - off.unmet_energy_kWh < 1
         ? ` Ở mức P_max này LP đã đạt tối ưu, nên dự báo xe đến không còn gì để cải thiện; chọn 20–30 kW để thấy tác dụng của dự báo.`
         : ` Khoảng cách tới tối ưu biết trước (LP thiếu ${unm(lp)} kWh, tối ưu thiếu ${unm(off)} kWh) là <b>mức lợi tối đa mà bất kỳ dự báo xe đến nào có thể mang lại</b>.` + fcTxt);
@@ -423,47 +420,28 @@ function drawSched() {
   } else {
     const m = (i) => SM ? SM[i] : null, a = m(1), b = m(2);
     $("s-insight").innerHTML = (a && b ? `Mô hình học máy dự báo nhu cầu của từng xe từ lịch sử của chính người dùng: sai số kWh ${nf(a.MAE_kWh, 2)} → <b>${nf(b.MAE_kWh, 2)} kWh</b>, sai số thời gian đỗ ${nf(a.MAE_duration_h, 2)} → <b>${nf(b.MAE_duration_h, 2)} giờ</b> so với dùng khai báo. ` : "") +
-      `Nhờ đó LP sạc thiếu <b>${unm(dl)} → ${unm(lp)} kWh</b> và chi phí ${nf(dl.cost_per_kWh_VND)} → ${nf(lp.cost_per_kWh_VND)} đ/kWh so với kịch bản khai báo. LLF vẫn sạc đủ hơn (${nf(llf.pct_energy_served, 2)}%): thông tin tốt hơn thu hẹp nhưng chưa xóa được khoảng cách với kịch bản biết đúng.`;
+      `Nhờ đó LP sạc thiếu <b>${unm(dl)} → ${unm(lp)} kWh</b> và chi phí ${usd(dl.cost_per_kWh_USD)} → ${usd(lp.cost_per_kWh_USD)}/kWh so với kịch bản khai báo. LLF vẫn sạc đủ hơn (${nf(llf.pct_energy_served, 2)}%): thông tin tốt hơn thu hẹp nhưng chưa xóa được khoảng cách với kịch bản biết đúng.`;
   }
 }
 
 // ================================================================ 4. đánh đổi
 function drawTradeoff() {
   seg($("t-info"), Object.entries(INFO), st.tinfo, (v) => { st.tinfo = v; drawTradeoff(); });
-  const pols = POLS.filter((p) => p !== "FCFS-Uncontrolled" && row("QD2892_2026", st.tinfo, PLIST[0], p));
-  const mkDs = (col) => pols.map((p) => ({ label: PNAME[p], data: PLIST.map((x) => { const v = row("QD2892_2026", st.tinfo, x, p)[col]; return col === "unmet_energy_kWh" ? Math.max(0, v) : v; }),
+  const pols = POLS.filter((p) => p !== "FCFS-Uncontrolled" && row("main", st.tinfo, PLIST[0], p));
+  const mkDs = (col) => pols.map((p) => ({ label: PNAME[p], data: PLIST.map((x) => { const v = row("main", st.tinfo, x, p)[col]; return col === "unmet_energy_kWh" ? Math.max(0, v) : v; }),
     borderColor: css(PCOL[p]), backgroundColor: css(PCOL[p]), borderWidth: 2, pointRadius: 4, pointHoverRadius: 6,
     borderDash: PDASH[p] || [] }));
   const labels = PLIST.map((p) => p + " kW");
-  const o1 = baseOpts("đ/kWh"); o1.scales.y.beginAtZero = false;
-  o1.plugins.tooltip.callbacks = { label: (c) => ` ${c.dataset.label}: ${nf(c.parsed.y)} đ/kWh` };
-  mk("c-cost", { type: "line", data: { labels, datasets: mkDs("cost_per_kWh_VND") }, options: o1 });
+  const o1 = baseOpts("$/kWh"); o1.scales.y.beginAtZero = false;
+  o1.plugins.tooltip.callbacks = { label: (c) => ` ${c.dataset.label}: ${usd(c.parsed.y)}/kWh` };
+  mk("c-cost", { type: "line", data: { labels, datasets: mkDs("cost_per_kWh_USD") }, options: o1 });
   const o2 = baseOpts("kWh"); o2.plugins.tooltip.callbacks = { label: (c) => ` ${c.dataset.label}: ${nf(c.parsed.y, 1)} kWh` };
   mk("c-unmet", { type: "line", data: { labels, datasets: mkDs("unmet_energy_kWh") }, options: o2 });
 }
 
-// ================================================================ 5. khung giờ
-function drawTariff() {
-  if (!S.summary.TT16_cu) { $("tariff").style.display = "none"; return; }
-  const p = 40, pols = ["FCFS-Capped", "EDF", "LLF", "LP-rolling", "Offline-optimal"];
-  $("tf-title").textContent = `Tiết kiệm chi phí ở P_max = ${p} kW`;
-  const ds = [["QD2892_2026", "Khung giờ mới (cao điểm 17:30–22:30)", "--s1"], ["TT16_cu", "Khung giờ cũ (có cao điểm buổi sáng)", "--s2"]].map(([k, label, c]) => ({
-    label, data: pols.map((q) => row(k, "oracle", p, q)["cost_saving_vs_uncontrolled_%"]), backgroundColor: css(c),
-    borderRadius: 4, borderSkipped: "start", maxBarThickness: 26, borderColor: css("--surface"), borderWidth: 2 }));
-  const o = baseOpts("% tiết kiệm"); o.indexAxis = "y";
-  o.scales = { x: { grid: { color: css("--grid") }, border: { display: false }, ticks: { color: css("--text-2"), callback: (v) => v + "%" } },
-               y: { grid: { display: false }, ticks: { color: css("--text-2") } } };
-  o.plugins.tooltip.callbacks = { label: (c) => ` ${c.dataset.label}: ${nf(c.parsed.x, 2)}%` };
-  mk("c-tariff", { type: "bar", data: { labels: pols.map((q) => PNAME[q]), datasets: ds }, options: o });
-  const a = row("QD2892_2026", "oracle", p, "LP-rolling"), b = row("TT16_cu", "oracle", p, "LP-rolling");
-  $("tf-insight").innerHTML = `LP tiết kiệm <b>${nf(b["cost_saving_vs_uncontrolled_%"], 1)}%</b> với khung giờ cũ nhưng chỉ <b>${nf(a["cost_saving_vs_uncontrolled_%"], 1)}%</b> với khung giờ mới. Xe ở trạm nơi làm việc sạc ban ngày; cao điểm mới rơi vào buổi tối khi phần lớn xe đã rời đi, nên còn ít phần sạc để dời.` + (() => {
-    const o = row("TT16_cu", "oracle", 20, "LP-rolling"), f = row("TT16_cu", "oracle", 20, "LP+forecast(RandomForest)"), x = row("TT16_cu", "oracle", 20, "Offline-optimal");
-    return o && f && x ? ` Với khung giờ cũ, dự báo xe đến có ích rõ hơn: ở 20 kW, LP sạc thiếu ${nf(o.unmet_energy_kWh, 0)} kWh, thêm dự báo còn ${nf(f.unmet_energy_kWh, 0)} kWh, gần mức tối ưu biết trước (${nf(x.unmet_energy_kWh, 0)} kWh). Cao điểm sáng 09:30–11:30 trùng lúc xe đến, nên nhiều khả năng LP hoãn sạc qua cao điểm rồi bị dồn khi xe mới tới; biết trước có xe đến thì LP chừa chỗ.` : "";
-  })();
-}
 
-function drawAll() { drawData(); drawForecast(); drawSched(); drawTradeoff(); drawTariff(); }
-$("foot").textContent = "Giá bán lẻ điện cho sạc xe điện, hạ áp đến 1 kV, chưa gồm VAT (QĐ 2892/QĐ-BCT, từ 01/11/2026); khung giờ theo QĐ 963/QĐ-BCT. Trang sinh bởi make_demo_page.py từ results/.";
+function drawAll() { drawData(); drawForecast(); drawSched(); drawTradeoff(); }
+$("foot").textContent = "Biểu giá SCE TOU-EV-4 (Southern California Edison) – biểu giá nhóm ACN dùng với dữ liệu Caltech (Lee et al., IEEE TSG 2021; acnportal). Đơn vị USD; chi phí gồm phí công suất đỉnh. Trang sinh bởi make_demo_page.py từ results/.";
 drawAll();
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawAll);
 </script>

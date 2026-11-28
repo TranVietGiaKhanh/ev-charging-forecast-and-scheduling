@@ -61,31 +61,39 @@ SESSION_Q_KWH = [0.5, 0.7, 0.85, 0.95]  # phân vị cho kWh cần (cao hơn = t
 SESSION_Q_DUR = [0.3, 0.15, 0.05]        # phân vị cho thời gian đỗ (thấp hơn = thận trọng hơn)
 SESSION_VAL_PMAX = [30.0, 40.0]          # các mức P_max dùng khi chọn phân vị
 
-# Biểu giá bán lẻ điện RIÊNG CHO SẠC XE ĐIỆN 3 bậc (đ/kWh, chưa gồm VAT), mức giá theo QĐ 2892/QĐ-BCT (áp dụng từ
-# 01/11/2026); khung giờ theo QĐ 963/QĐ-BCT (22/04/2026): cao điểm 17:30-22:30 thứ 2 - thứ 7 (Chủ nhật không có),
-# thấp điểm 00:00-06:00 mọi ngày, còn lại là bình thường.
-#   Trạm giả định đấu nối HẠ ÁP (đến 1 kV): 54 cổng AC 7 kW, công suất trạm vài chục kW, lấy điện từ lưới hạ áp của tòa nhà
-#   (không có trạm biến áp riêng) -> mặc định "QD2892_2026" dùng giá hạ áp: 1.620 / 2.700 / 4.212.
-#   "QD2892_trung_ap": giá trung áp (trên 1 kV, khi trạm có trạm biến áp riêng) 1.534 / 2.549 / 3.758 - để phân tích độ nhạy.
-# "TT16_cu": khung giờ cũ (cao điểm 09:30-11:30 và 17:00-20:00, thấp điểm 22:00-04:00), CÙNG mức giá hạ áp - để tách riêng
-#   ảnh hưởng của khung giờ.
-_PEAK, _OFF = [("17:30", "22:30")], [("00:00", "06:00")]
-_PRICE_HA_AP = {"offpeak": 1620.0, "normal": 2700.0, "peak": 4212.0}
+# Biểu giá điện KHỚP VỚI DỮ LIỆU (trạm Caltech, California): Southern California Edison TOU-EV-4, biểu giá cho hệ thống
+# sạc xe điện đo đếm riêng ($/kWh, theo giờ địa phương). Đây là biểu giá chính nhóm tác giả ACN dùng với dữ liệu Caltech:
+#   - Lee et al., "Adaptive Charging Networks: A Framework for Smart EV Charging", IEEE Trans. Smart Grid 2021,
+#     mục VI-D, Bảng III: https://arxiv.org/abs/2012.02636
+#   - acnportal (ACN-Sim), file sce_tou_ev_4_march_2019.json (hiệu lực 01/03/2019):
+#     https://github.com/zach401/acnportal/blob/master/acnportal/signals/tariffs/tariff_schedules/sce_tou_ev_4_march_2019.json
+#   - Biểu giá gốc của SCE (liên kết ghi trong file trên): https://www1.sce.com/NR/sc3/tm2/pdf/ce141-12.pdf
+# Ngày thường = thứ 2 - thứ 6; cuối tuần một giá cả ngày; không có quy tắc ngày lễ (giống acnportal).
+# Phí công suất đỉnh $15,51/kW/tháng tính trên đỉnh 15 phút của tháng (xem scheduling.daily_costs).
 TARIFFS = {
-    "QD2892_2026": {"price": _PRICE_HA_AP, "peak": _PEAK, "offpeak": _OFF},
-    "QD2892_trung_ap": {"price": {"offpeak": 1534.0, "normal": 2549.0, "peak": 3758.0}, "peak": _PEAK, "offpeak": _OFF},
-    "TT16_cu": {"price": _PRICE_HA_AP,
-                "peak": [("09:30", "11:30"), ("17:00", "20:00")], "offpeak": [("22:00", "24:00"), ("00:00", "04:00")]},
+    "SCE_TOU_EV_4": {
+        "name": "SCE TOU-EV-4",
+        "seasons": [   # giờ bắt đầu từng bậc ngày thường (giờ địa phương) và giá $/kWh tương ứng
+            {"name": "Mùa hè", "months": [6, 7, 8, 9], "weekday_start_h": [0, 8, 12, 18, 23],
+             "weekday_price": [0.05623, 0.0925, 0.26668, 0.0925, 0.05623], "weekend_price": 0.05623},
+            {"name": "Mùa đông", "months": [10, 11, 12, 1, 2, 3, 4, 5], "weekday_start_h": [0, 8, 12, 18, 23],
+             "weekday_price": [0.06087, 0.07492, 0.0869, 0.07492, 0.06087], "weekend_price": 0.06087},
+        ],
+        "peak_hours": (12, 18),            # giờ cao điểm ngày thường (giá cao nhất của mùa)
+        "demand_charge": 15.51,            # $/kW/tháng
+    },
 }
-TARIFF = "QD2892_2026"
+TARIFF = "SCE_TOU_EV_4"
+CURRENCY = "USD"
 
 # Quy hoạch tuyến tính
-BIG_M = 100_000.0                         # hệ số phạt cho năng lượng thiếu hụt (đ/kWh)
-EPS_EARLY = 0.5                           # phạt rất nhỏ theo thời gian: ưu tiên sạc sớm khi giá bằng nhau
+BIG_M = 10.0                              # phạt năng lượng thiếu hụt ($/kWh), gấp ~37 lần giá cao nhất
+EPS_EARLY = 1e-5                          # phạt rất nhỏ mỗi bước ($/kWh): ưu tiên sạc sớm khi giá bằng nhau
+                                          # (96 bước x 1e-5 < chênh lệch nhỏ nhất giữa hai bậc giá, ~0,012)
 HORIZON_MAX_STEPS = 96                    # nhìn trước tối đa 24 giờ
-# LP+forecast: phạt thiếu hụt của "xe ảo" (xe dự báo sẽ đến). Lớn hơn mọi chênh lệch giá điện (< 2.600 đ/kWh) để LP
+# LP+forecast: phạt thiếu hụt của "xe ảo" (xe dự báo sẽ đến). Lớn hơn mọi chênh lệch giá điện (< 0,21 $/kWh) để LP
 # sẵn sàng trả thêm tiền điện nhằm chừa chỗ, nhưng nhỏ hơn BIG_M để xe thật luôn được ưu tiên.
-BIG_M_FORECAST = 10_000.0
+BIG_M_FORECAST = 1.0                      # $/kWh
 
 # Công suất dự phòng theo dự báo số xe đến: R_t = gamma * P_max
 RESERVE_GAMMAS = [0.1, 0.2]

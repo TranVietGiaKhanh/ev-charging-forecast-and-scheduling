@@ -26,22 +26,37 @@ DT = C.DT_H
 STEP = pd.Timedelta(minutes=15)
 
 
-def _minutes(hhmm):
-    h, m = map(int, hhmm.split(":"))
-    return h * 60 + m
-
-
 def tariff_bands(step_time, tariff):
-    """Trả về (giá đ/kWh, là_cao_điểm) cho từng bước. Khung giờ theo GIỜ ĐỊA PHƯƠNG: bước có múi giờ (giờ thực) được đổi
-    sang giờ địa phương; bước không múi giờ coi như đã là giờ địa phương. Cao điểm chỉ áp dụng thứ 2 - thứ 7."""
+    """Trả về (giá $/kWh, là_cao_điểm) cho từng bước theo biểu giá có mùa (config.TARIFFS). Khung giờ theo GIỜ ĐỊA PHƯƠNG:
+    bước có múi giờ (giờ thực) được đổi sang giờ địa phương; bước không múi giờ coi như đã là giờ địa phương.
+    Ngày thường = thứ 2 - thứ 6 (giá theo bậc giờ); cuối tuần = một giá cả ngày."""
     lt = T.local(step_time) if step_time.tz is not None else step_time
-    tod = np.asarray(lt.hour * 60 + lt.minute)
-    in_any = lambda bands: np.any([(tod >= _minutes(a)) & (tod < _minutes(b)) for a, b in bands], axis=0)
-    is_peak = in_any(tariff["peak"]) & np.asarray(lt.dayofweek < 6)
-    is_off = in_any(tariff["offpeak"]) & ~is_peak
-    pr = tariff["price"]
-    price = np.where(is_peak, pr["peak"], np.where(is_off, pr["offpeak"], pr["normal"]))
-    return price, is_peak
+    hour = np.asarray(lt.hour + lt.minute / 60)
+    month, weekday = np.asarray(lt.month), np.asarray(lt.dayofweek < 5)
+    price = np.full(len(lt), np.nan)
+    for s in tariff["seasons"]:
+        m = np.isin(month, s["months"])
+        tier = np.searchsorted(s["weekday_start_h"], hour, side="right") - 1      # bậc có giờ bắt đầu <= giờ hiện tại
+        price = np.where(m & weekday, np.asarray(s["weekday_price"])[tier], np.where(m, s["weekend_price"], price))
+    assert not np.isnan(price).any(), "có tháng không thuộc mùa nào của biểu giá"
+    a, b = tariff["peak_hours"]
+    return price, weekday & (hour >= a) & (hour < b)
+
+
+def daily_costs(step_day, price, load, demand_charge):
+    """
+    Chi phí theo NGÀY ĐỊA PHƯƠNG ($): energy = sum(giá x kWh); demand = phí công suất đỉnh của tháng phân bổ đều theo ngày:
+    demand_charge ($/kW/tháng) x công suất 15 phút lớn nhất trong tháng / số ngày của tháng.
+    shortcut: tháng chỉ có một phần trong khoảng mô phỏng chỉ tính phần ngày có mặt (hóa đơn thật tính cả tháng);
+    nâng cấp nếu cần đúng từng hóa đơn.
+    """
+    df = pd.DataFrame({"day": pd.to_datetime(np.asarray(step_day)), "e": np.asarray(load) * np.asarray(price) * DT,
+                       "l": np.asarray(load)})
+    df["month"] = df["day"].dt.to_period("M")
+    peak = df.groupby("month")["l"].max()
+    d = df.groupby("day").agg(energy=("e", "sum"), month=("month", "first"))
+    d["demand"] = demand_charge * peak.reindex(d["month"]).values / d["month"].dt.days_in_month.values
+    return d[["energy", "demand"]]
 
 
 # ================================================================== dữ liệu bài toán
@@ -99,6 +114,10 @@ class Problem:
         self.n_steps = int(max(self.end.max(), self.end_hat.max())) + 1
         self.step_time = pd.date_range(self.t0, periods=self.n_steps, freq="15min")   # giờ thực (UTC)
         self.price, self.is_peak = tariff_bands(self.step_time, C.TARIFFS[tariff])
+        self.demand_charge = C.TARIFFS[tariff]["demand_charge"]
+        # ngày địa phương của từng bước; bước sau ngày cắm cuối cùng (xe đỗ qua đêm) gộp vào ngày cuối
+        last = T.local_day(s["connect"]).max().to_datetime64()
+        self.step_day = np.minimum(T.local_day(self.step_time).values, last)
         self.step_hour = self.step_time.floor("h")                 # để ghép với dự báo theo giờ
 
         self.starts_at = {}
@@ -228,7 +247,8 @@ def run_lp_policy(P: Problem, p_max: float, R_step=None, name="LP", verbose=True
     H, sph = C.HORIZON_MAX_STEPS, int(round(1 / DT))         # sph = số bước mỗi giờ
     if arrivals is not None:
         hours = pd.date_range(P.t0, periods=P.n_steps // sph + 1, freq="h")
-        n_fc = np.clip(arrivals.reindex(hours).fillna(0.0).values, 0, None)
+        # làm tròn 6 chữ số: dự báo RF tính song song lệch ~1e-15 giữa các lần chạy, đủ làm LP chọn nghiệm khác
+        n_fc = np.clip(arrivals.reindex(hours).fillna(0.0).values, 0, None).round(6)
         e_typ, d_typ = P.defaults
         d_steps = max(1, int(round(d_typ / DT)))
     for k in range(P.n_steps):
@@ -300,12 +320,16 @@ def build_reserve(P: Problem, nhat: pd.Series, thr: float, gamma: float, p_max: 
 
 # ================================================================== chỉ số đánh giá
 def summarize(P: Problem, r: Result, p_max: float):
-    cost = float((r.load * DT * P.price).sum())
+    dc = daily_costs(P.step_day, P.price, r.load, P.demand_charge)
+    energy, demand = float(dc["energy"].sum()), float(dc["demand"].sum())
+    cost = energy + demand                                     # tổng hóa đơn = tiền điện năng + phí công suất đỉnh
     delivered_total = float((r.load * DT).sum())
     return {
         "policy": r.name,
-        "total_cost_VND": round(cost),
-        "cost_per_kWh_VND": round(cost / delivered_total, 1) if delivered_total > 0 else np.nan,
+        "total_cost_USD": round(cost, 2),
+        "energy_cost_USD": round(energy, 2),
+        "demand_cost_USD": round(demand, 2),
+        "cost_per_kWh_USD": round(cost / delivered_total, 5) if delivered_total > 0 else np.nan,
         "peak_load_kW": round(float(r.load.max()), 2),
         "steps_over_Pmax": int((r.load > p_max + 1e-6).sum()),
         "peak_window_energy_kWh": round(float((r.load * DT)[P.is_peak].sum()), 1),

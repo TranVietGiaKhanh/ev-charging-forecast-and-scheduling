@@ -1,7 +1,6 @@
 """
 Chạy:  python run_03_schedule.py                       (cần run_01, run_02, run_02b chạy trước)
        python run_03_schedule.py --pmax 30 40 --skip-lp  (ít mức P_max, bỏ các biến thể LP cho nhanh)
-       python run_03_schedule.py --tariff TT16_cu        (so sánh với khung giờ cũ)
 Mô phỏng trên khoảng kiểm thử SIM_START..SIM_END (dự báo ngoài mẫu), với mọi kịch bản thông tin và mọi mức P_max.
 Sinh ra: results/schedule_summary.csv, schedule_load_profiles.csv (P_MAX_KW), schedule_load_profiles_all.csv
          (mọi P_max, cho trang demo), schedule_session_level.csv,
@@ -98,8 +97,8 @@ def main(p_list, skip_lp, tariff, workers=6):
             R = S.build_reserve(P, nhat, thr, C.RESERVE_GAMMAS[0], p_max)
             print(f"  số bước có chừa dự phòng: {int((R > 0).sum())}/{P.n_steps}")
         tab = pd.DataFrame([S.summarize(P, r, p_max) for r in res])
-        base = tab.loc[tab.policy == "FCFS-Uncontrolled", "total_cost_VND"].iloc[0]
-        tab["cost_saving_vs_uncontrolled_%"] = (100 * (base - tab["total_cost_VND"]) / base).round(2)
+        base = tab.loc[tab.policy == "FCFS-Uncontrolled", "total_cost_USD"].iloc[0]
+        tab["cost_saving_vs_uncontrolled_%"] = (100 * (base - tab["total_cost_USD"]) / base).round(2)
         tab.insert(0, "p_max_kW", p_max); tab.insert(0, "info", info)
         print(tab.drop(columns=["info", "p_max_kW", "mean_solve_time_s", "solver_fallbacks"]).to_string(index=False))
         rows.append(tab)
@@ -154,8 +153,8 @@ def main(p_list, skip_lp, tariff, workers=6):
         # ---- hình 2: so sánh các chiến lược ở P_MAX_KW, theo từng kịch bản thông tin
         t = summary[summary.p_max_kW == C.P_MAX_KW]
         fig, ax = plt.subplots(1, 3, figsize=(14, 4.2))
-        for a, col, ttl in zip(ax, ["cost_per_kWh_VND", "peak_load_kW", "pct_energy_served"],
-                               ["Chi phí trung bình (đ/kWh)", "Công suất đỉnh (kW)", "% năng lượng được đáp ứng"]):
+        for a, col, ttl in zip(ax, ["cost_per_kWh_USD", "peak_load_kW", "pct_energy_served"],
+                               ["Chi phí trung bình ($/kWh, gồm phí đỉnh)", "Công suất đỉnh (kW)", "% năng lượng được đáp ứng"]):
             piv = t.pivot(index="policy", columns="info", values=col).reindex(t.policy.drop_duplicates())
             piv.plot.barh(ax=a, legend=a is ax[0]); a.set_title(ttl, fontsize=10); a.invert_yaxis(); a.set_ylabel("")
         ax[1].axvline(C.P_MAX_KW, color="red", ls="--")
@@ -168,9 +167,9 @@ def main(p_list, skip_lp, tariff, workers=6):
     for j, info in enumerate(infos):
         d = summary[(summary["info"] == info) & (summary.policy != "FCFS-Uncontrolled")]
         for pol, g in d.groupby("policy", sort=False):
-            ax[0, j].plot(g.p_max_kW, g.cost_per_kWh_VND, "o-", label=pol)
+            ax[0, j].plot(g.p_max_kW, g.cost_per_kWh_USD, "o-", label=pol)
             ax[1, j].plot(g.p_max_kW, g.unmet_energy_kWh, "o-", label=pol)
-        ax[0, j].set_title(f"Kịch bản thông tin: {info}"); ax[0, j].set_ylabel("Chi phí trung bình (đ/kWh)")
+        ax[0, j].set_title(f"Kịch bản thông tin: {info}"); ax[0, j].set_ylabel("Chi phí trung bình ($/kWh, gồm phí đỉnh)")
         ax[1, j].set_ylabel("Năng lượng không đáp ứng (kWh)"); ax[1, j].set_xlabel("P_max (kW)")
     ax[0, 0].legend(fontsize=7)
     fig.tight_layout(); fig.savefig(C.FIGURES / f"schedule_tradeoff{sfx}.png", dpi=150); plt.close(fig)

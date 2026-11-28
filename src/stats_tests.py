@@ -15,6 +15,7 @@ import pandas as pd
 from scipy import stats
 
 from . import config as C
+from . import scheduling as S
 from . import timeaxis as T
 
 B_BOOT = 10_000
@@ -62,7 +63,9 @@ def _sched_daily(sfx):
     sday = T.local_day(sess["connect"])                           # ngày theo lịch địa phương
     pday = T.local_day(prof["time"]).clip(upper=sday.max())      # xe đỗ qua đêm cuối cùng -> gộp vào ngày cuối
     days = pd.Index(sorted(sday.unique()))
-    cost = lambda k: (prof[k] * prof["price"] * C.DT_H).groupby(pday).sum().reindex(days, fill_value=0.0).values
+    dch = C.TARIFFS[C.TARIFF]["demand_charge"]
+    # chi phí theo ngày = tiền điện năng + phần phí công suất đỉnh của tháng phân bổ cho ngày đó
+    cost = lambda k: S.daily_costs(pday, prof["price"], prof[k], dch).sum(axis=1).reindex(days, fill_value=0.0).values
     unmet = lambda k: (sess["E_kWh"] - sess[k]).clip(lower=0).groupby(sday).sum().reindex(days, fill_value=0.0).values
     return cost, unmet, len(days)
 
@@ -100,7 +103,7 @@ def _row(group, comparison, config, metric, est, lo, hi, p_le0, n_diff):
 def schedule_tests():
     rows = []
     RF = f"LP+forecast({C.RESERVE_MODEL})"
-    for sfx, tname in (("", C.TARIFF), ("_TT16_cu", "TT16_cu")):
+    for sfx, tname in (("", C.TARIFF),):
         if not (C.RESULTS / f"schedule_session_level_all{sfx}.csv").exists():
             continue
         cost, unmet, nd = _sched_daily(sfx)
@@ -176,15 +179,13 @@ def backtest_tests():
     def series(tariff, info, p, pol, col):
         x = d[(d.tariff == tariff) & (d["info"] == info) & (d.p_max_kW == p) & (d.policy == pol)].sort_values("day")
         return x.set_index("day")[col], x.set_index("day")["window"]
-    alt = "TT16_cu"
     claims = [
         ("Lập lịch", "LP-rolling so với FCFS-Uncontrolled", C.TARIFF, 40, ("oracle", "LP-rolling"), ("oracle", "FCFS-Uncontrolled"), "cost", "% tiết kiệm chi phí", pct_better),
-        ("Lập lịch", "LP-rolling so với FCFS-Uncontrolled", alt, 40, ("oracle", "LP-rolling"), ("oracle", "FCFS-Uncontrolled"), "cost", "% tiết kiệm chi phí", pct_better),
         ("Giá trị dự báo từng xe", "predicted so với declared (LP-rolling)", C.TARIFF, 25, ("predicted", "LP-rolling"), ("declared", "LP-rolling"), "unmet", "% giảm kWh thiếu", pct_better),
         ("Giá trị dự báo từng xe", "predicted so với declared (LP-rolling)", C.TARIFF, 40, ("predicted", "LP-rolling"), ("declared", "LP-rolling"), "unmet", "% giảm kWh thiếu", pct_better),
         ("Lập lịch", "LLF so với LP-rolling", C.TARIFF, 40, ("predicted", "LLF"), ("predicted", "LP-rolling"), "unmet", "kWh thiếu giảm được", diff),
     ]
-    for tf in (C.TARIFF, alt):
+    for tf in (C.TARIFF,):
         claims += [("Giá trị dự báo xe đến", f"LP+forecast({C.RESERVE_MODEL}) so với LP-rolling", tf, 25, ("oracle", f"LP+forecast({C.RESERVE_MODEL})"), ("oracle", "LP-rolling"), "unmet", "kWh thiếu giảm được", diff),
                    ("Giá trị dự báo xe đến", f"LP+forecast(perfect) so với LP+forecast({C.RESERVE_MODEL})", tf, 25, ("oracle", "LP+forecast(perfect)"), ("oracle", f"LP+forecast({C.RESERVE_MODEL})"), "unmet", "kWh thiếu giảm được", diff)]
     for group, comp, tf, p, A, Bspec, col, metric, f in claims:
